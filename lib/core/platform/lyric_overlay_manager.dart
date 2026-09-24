@@ -24,6 +24,11 @@ class LyricOverlayManager {
 
   Future<void> initialize() async {
     await _controller.initialize();
+    if (!_controller.isSupported) {
+      // 无系统悬浮能力（Windows 等）：不订阅、不恢复显示，避免谎报状态。
+      _isShowing = false;
+      return;
+    }
     _subscription = _subtitleService.currentSubtitleStream.listen((subtitle) {
       if (_isShowing) {
         _controller.updateLyric(subtitle?.text);
@@ -36,6 +41,9 @@ class LyricOverlayManager {
       await show();
     }
   }
+
+  /// 当前平台是否支持系统悬浮字幕（Android = true）。
+  bool get isSupported => _controller.isSupported;
 
   Future<void> dispose() async {
     await _subscription?.cancel();
@@ -51,6 +59,10 @@ class LyricOverlayManager {
   }
 
   Future<void> show() async {
+    if (!_controller.isSupported) {
+      _isShowing = false;
+      return;
+    }
     await _controller.show();
     _isShowing = true;
     final currentSubtitle = _subtitleService.currentSubtitleWithState;
@@ -62,7 +74,9 @@ class LyricOverlayManager {
   }
 
   Future<void> hide() async {
-    await _controller.hide();
+    if (_controller.isSupported) {
+      await _controller.hide();
+    }
     _isShowing = false;
     _isEditable = false;
   }

@@ -42,6 +42,9 @@ dependencies:
   cached_network_image: ^3.3.0
   logger: ^2.5.0
   just_audio: ^0.9.36
+  # EarChannelRouter 需要 JustAudioPlatform.instance 做 media_kit 后端门控
+  #（just_audio 未 re-export platform interface；本包已是 just_audio 传递依赖）。
+  just_audio_platform_interface: ^4.5.0
   audio_session: ^0.1.18
   get_it: ^8.0.2
   audio_service: ^0.18.12
@@ -147,3 +150,7 @@ flutter_launcher_icons:
 
 dependency_overrides:
   path: ^1.9.0  # 强制使用更高版本的 path 包
+  # AsmrAiPlayer fork：公开 mpv af 声道路由（同声传译左右耳隔离）。
+  # 上游升级需手动同步 third_party/just_audio_media_kit。
+  just_audio_media_kit:
+    path: third_party/just_audio_media_kit

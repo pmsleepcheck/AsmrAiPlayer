@@ -15,6 +15,8 @@ class WorkFolderItem extends StatelessWidget {
   final void Function(Child? folderNode)? onFolderDownload;
   final Set<String>? downloadedFileKeys;
   final Function(Child file)? onFilePlay;
+  final Function(Child file)? onFileTranslatePlay;
+  final Function(Child file)? onFilePickSubtitle;
 
   // 支持的音频格式列表，按优先级排序
   static List<String> get _audioFormats {
@@ -42,6 +44,8 @@ class WorkFolderItem extends StatelessWidget {
     this.onFolderDownload,
     this.downloadedFileKeys,
     this.onFilePlay,
+    this.onFileTranslatePlay,
+    this.onFilePickSubtitle,
   });
 
   bool _shouldExpandFolder(Child folder) {
@@ -113,6 +117,8 @@ class WorkFolderItem extends StatelessWidget {
                           onFolderDownload: onFolderDownload,
                           downloadedFileKeys: downloadedFileKeys,
                           onFilePlay: onFilePlay,
+                          onFileTranslatePlay: onFileTranslatePlay,
+                          onFilePickSubtitle: onFilePickSubtitle,
                         )
                       : WorkFileItem(
                           file: child,
@@ -121,6 +127,8 @@ class WorkFolderItem extends StatelessWidget {
                           onFileDownload: onFileDownload,
                           downloadedFileKeys: downloadedFileKeys,
                           onFilePlay: onFilePlay,
+                          onFileTranslatePlay: onFileTranslatePlay,
+                          onFilePickSubtitle: onFilePickSubtitle,
                         ))
                   .toList() ??
               [],

@@ -1,7 +1,11 @@
 import 'package:aaplay/core/audio/events/playback_event.dart';
 import 'package:aaplay/core/audio/models/audio_track_info.dart';
 import 'package:aaplay/core/audio/models/playback_context.dart';
+import 'package:aaplay/core/audio/models/file_path.dart';
 import 'package:aaplay/core/subtitle/i_subtitle_service.dart';
+import 'package:aaplay/core/subtitle/utils/subtitle_matcher.dart';
+import 'package:aaplay/data/models/files/child.dart';
+import 'package:aaplay/data/models/files/files.dart';
 import 'package:aaplay/utils/logger.dart';
 import 'package:flutter/foundation.dart';
 import 'package:aaplay/core/audio/i_audio_player_service.dart';
@@ -13,6 +17,7 @@ import 'package:aaplay/core/audio/events/playback_event_hub.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:get_it/get_it.dart';
 import 'package:aaplay/core/subtitle/subtitle_import_service.dart';
+import 'package:aaplay/core/audio/translation/translation_session_controller.dart';
 import 'package:rxdart/rxdart.dart';
 
 class PlayerViewModel extends ChangeNotifier {
@@ -236,6 +241,12 @@ class PlayerViewModel extends ChangeNotifier {
   }
 
   Future<void> seek(Duration position) async {
+    // 翻译轨：跳变后废弃在途 TTS 行，避免朗读过期字幕。
+    try {
+      GetIt.I<TranslationSessionController>().notifySeek();
+    } catch (_) {
+      // DI 未注册（纯单测）时忽略。
+    }
     await _audioService.seek(position);
   }
 
@@ -271,42 +282,85 @@ class PlayerViewModel extends ChangeNotifier {
   Future<void> _loadSubtitleIfAvailable(PlaybackContext context) async {
     final version = ++_loadVersion;
     final workId = context.work.id?.toString();
+    final files = context.files;
     final fileName = context.currentFile.title;
+    _isUserImportedSubtitle = false;
 
-    // 1. 用户导入优先
+    // 1. album.json 已记录匹配（手工选择 / 历史自动结果）优先，
+    //    避免自动链每次重算覆盖用户显式指定。
+    Child? subtitleFile;
+    String? audioPath;
     if (workId != null && fileName != null) {
-      final entry = await _importService.findImported(workId, fileName);
-      if (_loadVersion != version) return;
-      if (entry != null) {
-        final subtitleList =
-            await _importService.loadLocalSubtitle(entry.subtitlePath);
+      audioPath = FilePath.getPath(context.currentFile, files);
+      if (audioPath != null) {
+        final matches = await _downloadService.readSubtitleMatches(workId);
         if (_loadVersion != version) return;
-        if (subtitleList != null) {
-          await _subtitleService.loadSubtitleFromContent(subtitleList);
-          if (_loadVersion != version) return;
-          _isUserImportedSubtitle = true;
-          notifyListeners();
-          return;
+        final recorded = matches[audioPath];
+        if (recorded != null) {
+          subtitleFile = FilePath.childByPath(files, recorded);
+          if (subtitleFile != null &&
+              SubtitleMatcher.isSubtitleFile(subtitleFile.title)) {
+            AppLogger.debug('字幕命中 album.json 记录: $recorded');
+          } else {
+            subtitleFile = null;
+          }
         }
-        // Local file missing/corrupted → remove invalid association
-        await _importService.removeImportedSubtitle(workId, fileName);
-        if (_loadVersion != version) return;
       }
     }
 
-    // 2. 自动匹配。优先级：已下载本地字幕（离线可用）> 在线 URL。
-    _isUserImportedSubtitle = false;
-    final subtitleFile = _subtitleLoader.findSubtitleFile(
-      context.currentFile,
-      context.files,
-    );
+    // 2. 自动链 ①全名 ②规范化 ③去字符模糊（同目录 → 全树）；命中补写记录。
+    if (subtitleFile == null && fileName != null) {
+      subtitleFile = _subtitleLoader.findSubtitleFile(context.currentFile, files);
+      if (subtitleFile != null &&
+          workId != null &&
+          audioPath != null) {
+        final subPath = FilePath.getPath(subtitleFile, files);
+        if (subPath != null) {
+          await _downloadService.recordSubtitleMatch(
+            workId,
+            audioPath: audioPath,
+            subtitlePath: subPath,
+            overwrite: false,
+          );
+          if (_loadVersion != version) return;
+        }
+      }
+    }
+
     if (subtitleFile == null) {
+      // 3. 用户导入兜底（user_subtitles，外部文件不在树内）。
+      if (workId != null && fileName != null) {
+        final entry = await _importService.findImported(workId, fileName);
+        if (_loadVersion != version) return;
+        if (entry != null) {
+          final subtitleList =
+              await _importService.loadLocalSubtitle(entry.subtitlePath);
+          if (_loadVersion != version) return;
+          if (subtitleList != null) {
+            await _subtitleService.loadSubtitleFromContent(subtitleList);
+            if (_loadVersion != version) return;
+            _isUserImportedSubtitle = true;
+            notifyListeners();
+            return;
+          }
+          await _importService.removeImportedSubtitle(workId, fileName);
+          if (_loadVersion != version) return;
+        }
+      }
       _subtitleService.clearSubtitle();
       AppLogger.debug('未找到字幕文件，清除现有字幕');
       return;
     }
 
-    // 2a. 该字幕已随音频下载到本地 → 读本地文件，断网也能显示。
+    await _loadSubtitleContent(workId, subtitleFile, version);
+  }
+
+  /// 已下载本地字幕（离线）→ 在线 URL。
+  Future<void> _loadSubtitleContent(
+    String? workId,
+    Child subtitleFile,
+    int version,
+  ) async {
     if (workId != null) {
       final localPath =
           await _downloadService.localPathIfDownloaded(workId, subtitleFile);
@@ -322,13 +376,57 @@ class PlayerViewModel extends ChangeNotifier {
       }
     }
 
-    // 2b. 在线 URL（需网络）。
     if (subtitleFile.mediaDownloadUrl != null) {
       await _subtitleService.loadSubtitle(subtitleFile.mediaDownloadUrl!);
     } else {
       _subtitleService.clearSubtitle();
       AppLogger.debug('字幕文件无可用 URL，清除现有字幕');
     }
+  }
+
+  /// 手工选择：写 album.json（覆盖）并立即加载该字幕。
+  Future<bool> assignSubtitleFromAlbum(Child subtitleChild) async {
+    final context = currentContext;
+    if (context == null) return false;
+    final workId = context.work.id?.toString();
+    final files = context.files;
+    if (workId == null) return false;
+
+    final audioPath = FilePath.getPath(context.currentFile, files);
+    final subPath = FilePath.getPath(subtitleChild, files);
+    if (audioPath == null || subPath == null) return false;
+
+    final ok = await _downloadService.recordSubtitleMatch(
+      workId,
+      audioPath: audioPath,
+      subtitlePath: subPath,
+      overwrite: true,
+    );
+    if (!ok) AppLogger.warning('字幕已生效，但写入 album.json 失败');
+
+    final version = ++_loadVersion;
+    await _loadSubtitleContent(workId, subtitleChild, version);
+    _isUserImportedSubtitle = false;
+    notifyListeners();
+    return true;
+  }
+
+  /// 手工选择（详情页，不依赖正在播放）：只写 album.json 记录。
+  Future<bool> recordSubtitleMatchFor(
+    Child audio,
+    Child subtitle, {
+    required Files files,
+    required String workId,
+  }) async {
+    final audioPath = FilePath.getPath(audio, files);
+    final subPath = FilePath.getPath(subtitle, files);
+    if (audioPath == null || subPath == null) return false;
+    return _downloadService.recordSubtitleMatch(
+      workId,
+      audioPath: audioPath,
+      subtitlePath: subPath,
+      overwrite: true,
+    );
   }
 
   /// Import a subtitle file for the current audio.

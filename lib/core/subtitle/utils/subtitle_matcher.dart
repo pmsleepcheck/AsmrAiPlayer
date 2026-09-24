@@ -2,9 +2,19 @@ import 'dart:math';
 import 'package:aaplay/data/models/files/child.dart';
 import 'package:aaplay/utils/logger.dart';
 
+/// 字幕文件名匹配：优先级链
+/// 1. 全文件名精确匹配
+/// 2. 规范化全名匹配（小写、去扩展名、空白/全角空格折叠、常见破折号归一）
+/// 3. 去字符模糊匹配（仅保留字母/数字/CJK/假名/谚文后先求全等，
+///    再退 Levenshtein ≥ 0.6；前缀命中在模糊层内优先于纯编辑距离）
 class SubtitleMatcher {
   static const supportedFormats = ['.vtt', '.lrc'];
   static const double _similarityThreshold = 0.6;
+
+  /// 仅保留字母/数字与常见 CJK 字符，其余（空白、标点、括号等）全部去掉。
+  static final RegExp _noise = RegExp(
+    r'[^0-9a-z\u00c0-\u024f\u4e00-\u9fff\u3040-\u30ff\u31f0-\u31ff\uac00-\ud7af]+',
+  );
 
   static bool isSubtitleFile(String? fileName) {
     if (fileName == null) return false;
@@ -12,46 +22,41 @@ class SubtitleMatcher {
         .any((format) => fileName.toLowerCase().endsWith(format));
   }
 
-  /// Find matching subtitle for an audio file using 3-tier strategy:
-  /// 1. Exact match (basename or basename+ext)
-  /// 2. Prefix match
-  /// 3. Similarity match (Levenshtein-based, threshold >= 0.6)
+  /// 在 [candidates]（同目录或已收集的全树字幕）内按 ①②③ 查找。
   static Child? findMatchingSubtitle(
-      String audioFileName, List<Child> siblings) {
+      String audioFileName, List<Child> candidates) {
     final subtitleFiles =
-        siblings.where((f) => isSubtitleFile(f.title)).toList();
+        candidates.where((f) => isSubtitleFile(f.title)).toList();
     if (subtitleFiles.isEmpty) return null;
 
-    final audioBase = _getBaseName(audioFileName).toLowerCase();
-
-    // Guard: skip fuzzy matching for empty or very short basenames
+    final audioBase = _getBaseName(audioFileName);
     if (audioBase.trim().isEmpty) return null;
 
-    // --- Tier 1: Exact match ---
+    // ① 全文件名精确匹配
     final exactMatch = _findExactMatch(audioFileName, subtitleFiles);
     if (exactMatch != null) {
       AppLogger.debug('字幕匹配[精确]: ${exactMatch.title}');
       return exactMatch;
     }
 
-    // --- Tier 2: Prefix match ---
-    final prefixMatch = _findPrefixMatch(audioBase, subtitleFiles);
-    if (prefixMatch != null) {
-      AppLogger.debug('字幕匹配[前缀]: ${prefixMatch.title}');
-      return prefixMatch;
+    // ② 规范化全名匹配
+    final normalizedMatch = _findNormalizedMatch(audioBase, subtitleFiles);
+    if (normalizedMatch != null) {
+      AppLogger.debug('字幕匹配[规范化]: ${normalizedMatch.title}');
+      return normalizedMatch;
     }
 
-    // --- Tier 3: Similarity match ---
-    final similarMatch = _findSimilarMatch(audioBase, subtitleFiles);
-    if (similarMatch != null) {
-      AppLogger.debug('字幕匹配[相似度]: ${similarMatch.title}');
-      return similarMatch;
+    // ③ 去字符模糊匹配
+    final fuzzyMatch = _findStrippedMatch(audioBase, subtitleFiles);
+    if (fuzzyMatch != null) {
+      AppLogger.debug('字幕匹配[去字符模糊]: ${fuzzyMatch.title}');
+      return fuzzyMatch;
     }
 
     return null;
   }
 
-  /// Tier 1: Exact basename match (existing logic preserved)
+  /// ① 精确：`base+ext` / `fullName+ext` 与候选文件名（忽略大小写）相等。
   static Child? _findExactMatch(
       String audioFileName, List<Child> subtitleFiles) {
     final possibleNames = _getPossibleSubtitleNames(audioFileName);
@@ -65,55 +70,80 @@ class SubtitleMatcher {
     return null;
   }
 
-  /// Tier 2: Prefix match - audio base is prefix of subtitle base, or vice versa.
-  /// Among all prefix matches, pick the subtitle with basename length closest to audio basename.
-  static Child? _findPrefixMatch(String audioBase, List<Child> subtitleFiles) {
-    // Require at least 3 characters for prefix matching to avoid false positives
-    if (audioBase.length < 3) return null;
-
-    Child? bestMatch;
-    int bestLengthDiff = 999999;
-
+  /// ② 规范化后全名相等。
+  static Child? _findNormalizedMatch(
+      String audioBase, List<Child> subtitleFiles) {
+    final audioNorm = normalizeName(audioBase);
+    if (audioNorm.isEmpty) return null;
     for (final file in subtitleFiles) {
-      final subtitleBase = _getBaseName(file.title!).toLowerCase();
-      if (subtitleBase.startsWith(audioBase) ||
-          audioBase.startsWith(subtitleBase)) {
-        final lengthDiff = (subtitleBase.length - audioBase.length).abs();
-        if (lengthDiff < bestLengthDiff) {
-          bestLengthDiff = lengthDiff;
-          bestMatch = file;
-        }
-      }
+      final subNorm = normalizeName(_getBaseName(file.title!));
+      if (subNorm.isNotEmpty && subNorm == audioNorm) return file;
     }
-    return bestMatch;
+    return null;
   }
 
-  /// Tier 3: Similarity match using Levenshtein distance.
-  /// Returns the best match above the similarity threshold.
-  static Child? _findSimilarMatch(String audioBase, List<Child> subtitleFiles) {
-    // Require at least 3 characters for similarity matching
-    if (audioBase.length < 3) return null;
+  /// ③ 去字符后：全等 → 前缀 → Levenshtein ≥ 0.6。
+  static Child? _findStrippedMatch(
+      String audioBase, List<Child> subtitleFiles) {
+    final audioStrip = stripNoise(audioBase);
+    if (audioStrip.length < 3) return null;
 
-    Child? bestMatch;
+    Child? bestExact;
+    Child? bestPrefix;
+    int bestPrefixDiff = 999999;
+    Child? bestSimilar;
     double bestScore = 0.0;
 
     for (final file in subtitleFiles) {
-      final subtitleBase = _getBaseName(file.title!).toLowerCase();
-      final score = _similarity(audioBase, subtitleBase);
+      final subStrip = stripNoise(_getBaseName(file.title!));
+      if (subStrip.isEmpty) continue;
+
+      if (subStrip == audioStrip) {
+        bestExact ??= file;
+        continue;
+      }
+
+      if (subStrip.startsWith(audioStrip) ||
+          audioStrip.startsWith(subStrip)) {
+        final diff = (subStrip.length - audioStrip.length).abs();
+        if (diff < bestPrefixDiff) {
+          bestPrefixDiff = diff;
+          bestPrefix = file;
+        }
+        continue;
+      }
+
+      final score = _similarity(audioStrip, subStrip);
       if (score > bestScore && score >= _similarityThreshold) {
         bestScore = score;
-        bestMatch = file;
+        bestSimilar = file;
       }
     }
 
-    if (bestMatch != null) {
+    final hit = bestExact ?? bestPrefix ?? bestSimilar;
+    if (hit != null && bestSimilar == hit) {
       AppLogger.debug(
-          '字幕相似度最高: ${bestMatch.title} (score: ${bestScore.toStringAsFixed(2)})');
+          '字幕去字符相似度: ${hit.title} (${bestScore.toStringAsFixed(2)})');
     }
-    return bestMatch;
+    return hit;
   }
 
-  /// Normalized similarity: 1.0 = identical, 0.0 = completely different.
+  /// ② 的规范化：小写、去扩展名、trim、全角空格折叠、常见破折号归一。
+  static String normalizeName(String name) {
+    var t = _getBaseName(name).toLowerCase().trim();
+    t = t.replaceAll('\u3000', ' ');
+    t = t.replaceAll(RegExp(r'\s+'), ' ');
+    t = t.replaceAll(RegExp(r'[‐-―−˗]'), '-');
+    return t;
+  }
+
+  /// ③ 的去字符：仅保留 ASCII 字母数字、扩展拉丁、CJK、假名、谚文。
+  static String stripNoise(String name) {
+    return _getBaseName(name)
+        .toLowerCase()
+        .replaceAll(_noise, '');
+  }
+
   static double _similarity(String a, String b) {
     if (a == b) return 1.0;
     if (a.isEmpty || b.isEmpty) return 0.0;
@@ -121,7 +151,6 @@ class SubtitleMatcher {
     return 1.0 - (_levenshteinDistance(a, b) / maxLen);
   }
 
-  /// Standard Levenshtein distance using O(n) two-row space optimization.
   static int _levenshteinDistance(String s, String t) {
     final m = s.length;
     final n = t.length;

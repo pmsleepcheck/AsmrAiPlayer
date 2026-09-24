@@ -41,6 +41,11 @@ import 'package:aaplay/core/download/storage/i_work_snapshot_repository.dart';
 import 'package:aaplay/core/download/storage/work_snapshot_repository.dart';
 import 'package:aaplay/core/download/download_service.dart';
 import 'package:aaplay/core/download/download_queue_service.dart';
+import 'package:aaplay/core/audio/translation/ear_mark_repository.dart';
+import 'package:aaplay/core/audio/translation/ear_side_detector.dart';
+import 'package:aaplay/core/audio/translation/fish_tts_config.dart';
+import 'package:aaplay/core/audio/translation/fish_tts_service.dart';
+import 'package:aaplay/core/audio/translation/translation_session_controller.dart';
 import 'package:aaplay/data/models/files/files.dart';
 import 'package:aaplay/data/models/works/work.dart';
 import 'package:aaplay/utils/logger.dart';
@@ -96,6 +101,7 @@ Future<void> setupServiceLocator() async {
     () => DownloadService(
       repository: getIt<IDownloadRepository>(),
       settings: getIt<AppSettingsService>(),
+      snapshots: getIt<IWorkSnapshotRepository>(),
     ),
   );
 
@@ -110,12 +116,16 @@ Future<void> setupServiceLocator() async {
         required file,
         onProgress,
         cancelToken,
+        work,
+        files,
       }) =>
           getIt<DownloadService>().download(
         workId: workId,
         file: file,
         onProgress: onProgress,
         cancelToken: cancelToken,
+        work: work,
+        files: files,
       ),
       loadSnapshot: (workId) async {
         final snap = await getIt<IWorkSnapshotRepository>().load(workId);
@@ -167,6 +177,35 @@ Future<void> setupServiceLocator() async {
       audioService: getIt(),
       eventHub: getIt(),
       subtitleService: getIt(),
+    ),
+  );
+
+  // 翻译混播（fish TTS 第二音轨）——列表「翻译+播放」与播放页开关/方向。
+  getIt.registerLazySingleton<FishTtsConfigStore>(
+    // ChangeNotifier：播放页音色预设一键切换需 Listenable 刷新。
+    () => FishTtsConfigStore(prefs: prefs),
+  );
+  getIt.registerLazySingleton<FishTtsService>(
+    // settings：Fish TTS 请求走应用内代理（与其余 Dio 客户端一致）。
+    () => FishTtsService(
+      config: getIt<FishTtsConfigStore>(),
+      settings: getIt<AppSettingsService>(),
+    ),
+  );
+  getIt.registerLazySingleton<EarMarkRepository>(
+    () => EarMarkRepository(prefs),
+  );
+  // 波形检测的 localPath 解析器由列表入口按各自 workId 注入（detect 调用参数）。
+  getIt.registerLazySingleton<EarSideDetector>(
+    () => EarSideDetector(marks: getIt<EarMarkRepository>()),
+  );
+  getIt.registerLazySingleton<TranslationSessionController>(
+    () => TranslationSessionController(
+      subtitleService: getIt<ISubtitleService>(),
+      eventHub: getIt<PlaybackEventHub>(),
+      tts: getIt<FishTtsService>(),
+      config: getIt<FishTtsConfigStore>(),
+      audio: getIt<IAudioPlayerService>(),
     ),
   );
 

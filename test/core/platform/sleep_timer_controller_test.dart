@@ -25,11 +25,25 @@ void main() {
       expect(audio.pauseCount, 0);
     });
 
-    test('setMinutes 设定时长 → minutes/isActive 反映', () {
+    test('setMinutes 设定时长 → minutes/isActive/remaining 反映', () {
       final c = SleepTimerController(_FakeAudioService());
       c.setMinutes(30);
       expect(c.minutes, 30);
       expect(c.isActive, isTrue);
+      expect(c.remaining, const Duration(minutes: 30));
+    });
+
+    test('remaining 随 ticker 每秒递减', () {
+      fakeAsync((async) {
+        final c = SleepTimerController(_FakeAudioService());
+        c.setMinutes(1);
+        expect(c.remaining, const Duration(minutes: 1));
+        async.elapse(const Duration(seconds: 20));
+        expect(c.remaining, const Duration(seconds: 40));
+        async.elapse(const Duration(seconds: 40));
+        expect(c.isActive, isFalse);
+        expect(c.remaining, Duration.zero);
+      });
     });
 
     test('setMinutes(null) / cancel() 取消并复位', () {
@@ -38,11 +52,13 @@ void main() {
       c.setMinutes(null);
       expect(c.minutes, isNull);
       expect(c.isActive, isFalse);
+      expect(c.remaining, Duration.zero);
 
       c.setMinutes(45);
       c.cancel();
       expect(c.minutes, isNull);
       expect(c.isActive, isFalse);
+      expect(c.remaining, Duration.zero);
     });
 
     test('setMinutes(<=0) 视为取消', () {

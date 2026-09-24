@@ -1,4 +1,10 @@
 abstract class ILyricOverlayController {
+  /// 当前平台是否具备真实系统悬浮字幕能力。
+  ///
+  /// Android 真实现 = `true`；Dummy（Windows/iOS/…）= `false`。
+  /// UI 必须以此门控「悬浮歌词」入口，避免在无能力平台上谎报可显示状态。
+  bool get isSupported;
+
   /// 初始化悬浮窗
   Future<void> initialize();
 

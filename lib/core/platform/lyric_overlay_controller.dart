@@ -8,6 +8,9 @@ class LyricOverlayController implements ILyricOverlayController {
   static const _channel = MethodChannel('com.aaplay/lyric_overlay');
 
   @override
+  bool get isSupported => true;
+
+  @override
   Future<void> initialize() async {
     try {
       AppLogger.debug('[$_tag] 初始化');

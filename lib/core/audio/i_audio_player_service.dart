@@ -11,6 +11,10 @@ abstract class IAudioPlayerService {
   Future<void> next();
   Future<void> dispose();
 
+  /// 主音轨音量（0..1）。翻译混播的主次 emphasis 用；实现应 best-effort，
+  /// 失败不抛到调用方 UI 主路径（由实现内部收敛）。
+  Future<void> setVolume(double volume);
+
   // 上下文管理
   Future<void> playWithContext(PlaybackContext context);
 

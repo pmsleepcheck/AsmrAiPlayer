@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:aaplay/widgets/common/skeleton_pulse.dart';
 import 'package:aaplay/core/image/cache/image_cache_manager.dart';
+import 'package:aaplay/core/settings/no_image_mode.dart';
 import 'package:aaplay/core/theme/app_colors.dart';
 import 'package:aaplay/core/theme/app_spacing.dart';
 import 'package:aaplay/core/theme/app_text_styles.dart';
@@ -47,72 +48,95 @@ class WorkCoverImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: _aspectRatio,
-      child: Stack(
-        children: [
-          Hero(
-            tag: 'work-cover-$workId',
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final dpr = MediaQuery.of(context).devicePixelRatio;
-                final w = constraints.maxWidth;
-                int? cacheWidth;
-                if (w.isFinite && w > 0) {
-                  final p = (w * dpr).round();
-                  cacheWidth = p < 1 ? 1 : p;
-                }
-                return CachedNetworkImage(
-                  imageUrl: imageUrl,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  height: double.infinity,
-                  memCacheWidth: cacheWidth,
-                  fadeInDuration: const Duration(milliseconds: 150),
-                  cacheManager: ImageCacheManager.instance,
-                  placeholder: (context, url) => SkeletonPulse(
-                    child: Container(
-                      color:
-                          Theme.of(context).colorScheme.surfaceContainerHighest,
+    return withNoImageMode((context, noImage) {
+      return AspectRatio(
+        aspectRatio: _aspectRatio,
+        child: Stack(
+          children: [
+            Hero(
+              tag: 'work-cover-$workId',
+              child: noImage
+                  ? const _NoImagePlaceholder()
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        final dpr = MediaQuery.of(context).devicePixelRatio;
+                        final w = constraints.maxWidth;
+                        int? cacheWidth;
+                        if (w.isFinite && w > 0) {
+                          final p = (w * dpr).round();
+                          cacheWidth = p < 1 ? 1 : p;
+                        }
+                        return CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: double.infinity,
+                          memCacheWidth: cacheWidth,
+                          fadeInDuration: const Duration(milliseconds: 150),
+                          cacheManager: ImageCacheManager.instance,
+                          placeholder: (context, url) => SkeletonPulse(
+                            child: Container(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest,
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color:
+                                Theme.of(context).colorScheme.errorContainer,
+                            child: Center(
+                              child: Icon(
+                                Icons.error_outline,
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  ),
-                  errorWidget: (context, url, error) => Container(
-                    color: Theme.of(context).colorScheme.errorContainer,
-                    child: Center(
-                      child: Icon(
-                        Icons.error_outline,
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                  ),
-                );
-              },
             ),
-          ),
-          if (isDownloaded != null)
-            Positioned(
-              left: AppSpacing.space8,
-              top: AppSpacing.space8,
-              child: _CoverBadge(
-                text:
-                    isDownloaded! ? Strings.playerLocal : Strings.playerOnline,
-                solid: true,
+            if (isDownloaded != null)
+              Positioned(
+                left: AppSpacing.space8,
+                top: AppSpacing.space8,
+                child: _CoverBadge(
+                  text: isDownloaded!
+                      ? Strings.playerLocal
+                      : Strings.playerOnline,
+                  solid: true,
+                ),
               ),
-            ),
-          if (sourceId.isNotEmpty)
-            Positioned(
-              right: AppSpacing.space8,
-              top: AppSpacing.space8,
-              child: _CoverBadge(text: sourceId),
-            ),
-          if (durationSeconds != null && durationSeconds! > 0)
-            Positioned(
-              left: AppSpacing.space8,
-              bottom: AppSpacing.space8,
-              child: _CoverBadge(text: _fmtDuration(durationSeconds!)),
-            ),
-        ],
-      ),
+            if (sourceId.isNotEmpty)
+              Positioned(
+                right: AppSpacing.space8,
+                top: AppSpacing.space8,
+                child: _CoverBadge(text: sourceId),
+              ),
+            if (durationSeconds != null && durationSeconds! > 0)
+              Positioned(
+                left: AppSpacing.space8,
+                bottom: AppSpacing.space8,
+                child: _CoverBadge(text: _fmtDuration(durationSeconds!)),
+              ),
+          ],
+        ),
+      );
+    });
+  }
+}
+
+/// 无图片模式占位：不发网络请求，保留 Hero 结构与角标层。
+class _NoImagePlaceholder extends StatelessWidget {
+  const _NoImagePlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      color: cs.surfaceContainerHighest,
+      width: double.infinity,
+      height: double.infinity,
+      child: Icon(Icons.image_outlined, size: 40, color: cs.onSurfaceVariant),
     );
   }
 }

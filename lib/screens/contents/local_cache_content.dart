@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:aaplay/common/constants/strings.dart';
 import 'package:aaplay/core/audio/i_audio_player_service.dart';
 import 'package:aaplay/core/audio/models/playback_context.dart';
+import 'package:aaplay/core/audio/translation/translation_play_flow.dart';
 import 'package:aaplay/core/download/download_service.dart';
 import 'package:aaplay/core/download/models/download_entry.dart';
 import 'package:aaplay/core/download/storage/i_work_snapshot_repository.dart';
@@ -17,9 +18,10 @@ import 'package:aaplay/data/models/works/work.dart';
 import 'package:aaplay/presentation/viewmodels/local_cache_viewmodel.dart';
 import 'package:aaplay/utils/file_size_formatter.dart';
 import 'package:aaplay/utils/logger.dart';
+import 'package:aaplay/widgets/download/download_queue_panel.dart';
 
-/// 「本地缓存」tab 正文：已下载文件浏览器。
-/// 上 = 过滤 chips + 下载根路径；下 = 按作品分组的文件列表（播放/删除）。
+/// 「本地缓存」tab 正文（合并页）：上 = 可折叠下载队列（DownloadQueuePanel），
+/// 下 = 本地文件浏览器（路径头 + 过滤 chips + 分组列表）。
 class LocalCacheContent extends StatefulWidget {
   const LocalCacheContent({super.key});
 
@@ -30,6 +32,12 @@ class LocalCacheContent extends StatefulWidget {
 class _LocalCacheContentState extends State<LocalCacheContent>
     with AutomaticKeepAliveClientMixin {
   String? _rootPath;
+  int _extraRootCount = 0;
+  bool _scanning = false;
+
+  /// 已展开的作品（文件夹）分组 workId；**空集 = 默认全部折叠**。
+  /// 放 State 而非 ViewModel：与数据 load 解耦，KeepAlive 跨 tab 保留。
+  final Set<String> _expandedWorkIds = <String>{};
 
   @override
   bool get wantKeepAlive => true;
@@ -38,17 +46,43 @@ class _LocalCacheContentState extends State<LocalCacheContent>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<LocalCacheViewModel>().load();
+      // 进页首扫（scan 失败不阻断 DB 列表）。
+      context.read<LocalCacheViewModel>().load(scan: true);
       _loadRoot();
     });
   }
 
   Future<void> _loadRoot() async {
     try {
-      final path = await GetIt.I<DownloadService>().downloadsRootPath();
-      if (mounted) setState(() => _rootPath = path);
+      final paths = await GetIt.I<DownloadService>().downloadsRootPaths();
+      if (mounted) {
+        setState(() {
+          _rootPath = paths.isEmpty ? null : paths.first;
+          _extraRootCount = paths.length > 1 ? paths.length - 1 : 0;
+        });
+      }
     } catch (e) {
       AppLogger.warning('解析下载根路径失败: $e');
+    }
+  }
+
+  /// 扫盘 + 刷新；弹「新增 N 项」/「扫描失败」。
+  Future<void> _scan() async {
+    if (_scanning) return;
+    setState(() => _scanning = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final added =
+          await context.read<LocalCacheViewModel>().scanAndLoad();
+      if (!mounted) return;
+      messenger.clearSnackBars();
+      messenger.showSnackBar(SnackBar(
+        content: Text(added == null
+            ? Strings.localCacheScanFailed
+            : Strings.localCacheScanResult(added)),
+      ));
+    } finally {
+      if (mounted) setState(() => _scanning = false);
     }
   }
 
@@ -91,6 +125,7 @@ class _LocalCacheContentState extends State<LocalCacheContent>
         await _openExternal(e.filePath);
         return;
       }
+      await TranslationPlayFlow.prepareNormalPlay();
       final ctx = await _buildAudioContext(e);
       await GetIt.I<IAudioPlayerService>().playWithContext(ctx);
     } catch (err) {
@@ -102,6 +137,44 @@ class _LocalCacheContentState extends State<LocalCacheContent>
       }
     }
   }
+
+  /// 翻译+播放：Key → 耳侧（本地路径可波形）→ 开会话 → 同 [_play] 音频路径。
+  Future<void> _translatePlay(DownloadEntry e) async {
+    if (LocalCacheViewModel.isVideoEntry(e)) return;
+    if (!mounted) return;
+    final synthetic = _syntheticChild(e);
+    final ok = await TranslationPlayFlow.prepareSession(
+      context: context,
+      file: synthetic,
+      keys: [e.fileKey],
+      resolveLocalPath: (_) async => e.filePath,
+    );
+    if (!ok || !mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(const SnackBar(
+        content: Text(Strings.translationPlayStarting),
+        duration: Duration(seconds: 1),
+      ));
+    try {
+      final ctx = await _buildAudioContext(e);
+      await GetIt.I<IAudioPlayerService>().playWithContext(ctx);
+    } catch (err) {
+      AppLogger.error('本地缓存翻译播放失败: ${e.fileName}', err);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(Strings.playFailed(err))),
+        );
+      }
+    }
+  }
+
+  Child _syntheticChild(DownloadEntry e) => Child(
+        type: e.mediaType.isNotEmpty ? e.mediaType : 'audio',
+        title: e.fileName,
+        mediaDownloadUrl: Uri.file(e.filePath).toString(),
+        size: e.size,
+      );
 
   /// 优先完整快照树（同目录多曲 playlist）；否则/再失败 → 单曲合成 context。
   Future<PlaybackContext> _buildAudioContext(DownloadEntry e) async {
@@ -242,77 +315,106 @@ class _LocalCacheContentState extends State<LocalCacheContent>
   Widget build(BuildContext context) {
     super.build(context);
     final cs = Theme.of(context).colorScheme;
-    return Consumer<LocalCacheViewModel>(
-      builder: (context, vm, _) {
-        return Column(
-          children: [
-            Material(
-              color: cs.surfaceContainerHighest,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.space16,
-                  vertical: AppSpacing.space8,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (_rootPath != null)
-                      InkWell(
-                        onTap: _openRoot,
-                        child: Row(
-                          children: [
-                            Icon(Icons.folder_open_outlined,
-                                size: 18, color: cs.primary),
-                            const SizedBox(width: AppSpacing.space8),
-                            Expanded(
-                              child: Text(
-                                _rootPath!,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodySmall,
+    return Column(
+      children: [
+        // 下载队列（可折叠）：有 pending 默认展开，否则折叠。
+        const DownloadQueuePanel(),
+        Expanded(
+          child: Consumer<LocalCacheViewModel>(
+            builder: (context, vm, _) {
+              return Column(
+                children: [
+                  Material(
+                    color: cs.surfaceContainerHighest,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.space16,
+                        vertical: AppSpacing.space8,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (_rootPath != null)
+                            InkWell(
+                              onTap: _openRoot,
+                              child: Row(
+                                children: [
+                                  Icon(Icons.folder_open_outlined,
+                                      size: 18, color: cs.primary),
+                                  const SizedBox(width: AppSpacing.space8),
+                                  Expanded(
+                                    child: Text(
+                                      _extraRootCount > 0
+                                          ? '$_rootPath · ${Strings.localCacheRootsSuffix(_extraRootCount)}'
+                                          : _rootPath!,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style:
+                                          Theme.of(context).textTheme.bodySmall,
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpacing.space8),
+                                  IconButton(
+                                    tooltip: Strings.localCacheScanTooltip,
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: _scanning ? null : _scan,
+                                    icon: _scanning
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                                strokeWidth: 2),
+                                          )
+                                        : const Icon(Icons.sync_outlined,
+                                            size: 20),
+                                  ),
+                                  TextButton.icon(
+                                    onPressed: _openRoot,
+                                    icon: const Icon(Icons.open_in_new,
+                                        size: 16),
+                                    label: const Text(Strings.openFolder),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(width: AppSpacing.space8),
-                            TextButton.icon(
-                              onPressed: _openRoot,
-                              icon: const Icon(Icons.open_in_new, size: 16),
-                              label: const Text(Strings.openFolder),
-                            ),
-                          ],
-                        ),
+                          const SizedBox(height: AppSpacing.space4),
+                          Wrap(
+                            spacing: AppSpacing.space8,
+                            children: [
+                              _FilterChip(
+                                label: Strings.localCacheFilterAll,
+                                selected:
+                                    vm.filter == LocalCacheFilter.all,
+                                onSelected: (_) =>
+                                    vm.setFilter(LocalCacheFilter.all),
+                              ),
+                              _FilterChip(
+                                label: Strings.localCacheFilterVideo,
+                                selected:
+                                    vm.filter == LocalCacheFilter.video,
+                                onSelected: (_) =>
+                                    vm.setFilter(LocalCacheFilter.video),
+                              ),
+                              _FilterChip(
+                                label: Strings.localCacheFilterAudio,
+                                selected:
+                                    vm.filter == LocalCacheFilter.audio,
+                                onSelected: (_) =>
+                                    vm.setFilter(LocalCacheFilter.audio),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    const SizedBox(height: AppSpacing.space4),
-                    Wrap(
-                      spacing: AppSpacing.space8,
-                      children: [
-                        _FilterChip(
-                          label: Strings.localCacheFilterAll,
-                          selected: vm.filter == LocalCacheFilter.all,
-                          onSelected: (_) =>
-                              vm.setFilter(LocalCacheFilter.all),
-                        ),
-                        _FilterChip(
-                          label: Strings.localCacheFilterVideo,
-                          selected: vm.filter == LocalCacheFilter.video,
-                          onSelected: (_) =>
-                              vm.setFilter(LocalCacheFilter.video),
-                        ),
-                        _FilterChip(
-                          label: Strings.localCacheFilterAudio,
-                          selected: vm.filter == LocalCacheFilter.audio,
-                          onSelected: (_) =>
-                              vm.setFilter(LocalCacheFilter.audio),
-                        ),
-                      ],
                     ),
-                  ],
-                ),
-              ),
-            ),
-            Expanded(child: _buildBody(context, vm, cs)),
-          ],
-        );
-      },
+                  ),
+                  Expanded(child: _buildBody(context, vm, cs)),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -341,83 +443,88 @@ class _LocalCacheContentState extends State<LocalCacheContent>
       );
     }
     if (vm.groups.isEmpty) {
-      return Center(
-        child: Text(
-          Strings.localCacheEmpty,
-          style: TextStyle(color: cs.onSurfaceVariant),
+      // 可下拉触发扫盘（空态也要能发现附加目录里的文件；扫盘按钮亦在路径头）。
+      return RefreshIndicator(
+        onRefresh: _scan,
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Center(
+                child: Text(
+                  Strings.localCacheEmpty,
+                  style: TextStyle(color: cs.onSurfaceVariant),
+                ),
+              ),
+            ),
+          ),
         ),
       );
     }
     return RefreshIndicator(
-      onRefresh: () => vm.load(),
+      onRefresh: _scan,
       child: ListView(
         padding: const EdgeInsets.only(bottom: AppSpacing.space16),
         children: [
           for (final g in vm.groups) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.space16,
-                AppSpacing.space16,
-                AppSpacing.space16,
-                AppSpacing.space4,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    g.title,
+            _GroupHeader(
+              title: g.title,
+              sourceId: g.work?.sourceId,
+              count: g.entries.length,
+              expanded: _expandedWorkIds.contains(g.workId),
+              onTap: () => setState(() {
+                if (!_expandedWorkIds.remove(g.workId)) {
+                  _expandedWorkIds.add(g.workId);
+                }
+              }),
+            ),
+            if (_expandedWorkIds.contains(g.workId))
+              for (final e in g.entries)
+                ListTile(
+                  dense: true,
+                  leading: Icon(
+                    LocalCacheViewModel.isVideoEntry(e)
+                        ? Icons.movie_outlined
+                        : Icons.audio_file,
+                    color: LocalCacheViewModel.isVideoEntry(e)
+                        ? Colors.deepPurple
+                        : Colors.green,
+                  ),
+                  title: Text(e.fileName,
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  subtitle: Text(
+                    FileSizeFormatter.format(e.size),
                     style: Theme.of(context)
                         .textTheme
-                        .titleSmall
-                        ?.copyWith(fontWeight: FontWeight.w600),
+                        .bodySmall
+                        ?.copyWith(color: cs.onSurfaceVariant),
                   ),
-                  if (g.work?.sourceId != null)
-                    Text(
-                      g.work!.sourceId!,
-                      style: Theme.of(context)
-                          .textTheme
-                          .labelSmall
-                          ?.copyWith(color: cs.onSurfaceVariant),
-                    ),
-                ],
-              ),
-            ),
-            for (final e in g.entries)
-              ListTile(
-                dense: true,
-                leading: Icon(
-                  LocalCacheViewModel.isVideoEntry(e)
-                      ? Icons.movie_outlined
-                      : Icons.audio_file,
-                  color: LocalCacheViewModel.isVideoEntry(e)
-                      ? Colors.deepPurple
-                      : Colors.green,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (!LocalCacheViewModel.isVideoEntry(e))
+                        IconButton(
+                          tooltip: Strings.translatePlayTooltip,
+                          icon: const Icon(Icons.record_voice_over_outlined,
+                              size: 20),
+                          onPressed: () => _translatePlay(e),
+                        ),
+                      IconButton(
+                        tooltip: Strings.localCachePlayTooltip,
+                        icon: const Icon(Icons.play_arrow, size: 22),
+                        onPressed: () => _play(e),
+                      ),
+                      IconButton(
+                        tooltip: Strings.localCacheDeleteTooltip,
+                        icon: Icon(Icons.delete_outline,
+                            size: 20, color: cs.error),
+                        onPressed: () => _confirmDelete(e),
+                      ),
+                    ],
+                  ),
+                  onTap: () => _play(e),
                 ),
-                title: Text(e.fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
-                subtitle: Text(
-                  FileSizeFormatter.format(e.size),
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      tooltip: Strings.localCachePlayTooltip,
-                      icon: const Icon(Icons.play_arrow, size: 22),
-                      onPressed: () => _play(e),
-                    ),
-                    IconButton(
-                      tooltip: Strings.localCacheDeleteTooltip,
-                      icon: Icon(Icons.delete_outline, size: 20, color: cs.error),
-                      onPressed: () => _confirmDelete(e),
-                    ),
-                  ],
-                ),
-                onTap: () => _play(e),
-              ),
             Divider(height: 1, color: cs.surfaceContainerHighest),
           ],
         ],
@@ -450,6 +557,83 @@ class _FilterChip extends StatelessWidget {
       ),
       visualDensity: VisualDensity.compact,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+  }
+}
+
+/// 作品（文件夹）分组头：可点折叠/展开 + 条数；默认收起见 [_expandedWorkIds]。
+class _GroupHeader extends StatelessWidget {
+  const _GroupHeader({
+    required this.title,
+    required this.sourceId,
+    required this.count,
+    required this.expanded,
+    required this.onTap,
+  });
+
+  final String title;
+  final String? sourceId;
+  final int count;
+  final bool expanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.space16,
+            AppSpacing.space16,
+            AppSpacing.space8,
+            AppSpacing.space4,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleSmall
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    if (sourceId != null)
+                      Text(
+                        sourceId!,
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelSmall
+                            ?.copyWith(color: cs.onSurfaceVariant),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.space8),
+              Text(
+                Strings.localCacheGroupCount(count),
+                style: Theme.of(context)
+                    .textTheme
+                    .labelSmall
+                    ?.copyWith(color: cs.onSurfaceVariant),
+              ),
+              Icon(
+                expanded ? Icons.expand_less : Icons.expand_more,
+                color: cs.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -16,8 +16,10 @@ import 'package:aaplay/core/download/download_service.dart';
 import 'package:aaplay/common/constants/strings.dart';
 import 'package:aaplay/screens/similar_works_screen.dart';
 import 'package:aaplay/screens/subtitle_preview_screen.dart';
-import 'package:aaplay/screens/download_management_screen.dart';
+import 'package:aaplay/screens/main_screen.dart';
 import 'package:aaplay/utils/logger.dart';
+import 'package:aaplay/core/audio/translation/translation_play_flow.dart';
+import 'package:aaplay/widgets/detail/subtitle_pick_dialog.dart';
 import 'package:open_filex/open_filex.dart';
 
 class DetailScreen extends StatelessWidget {
@@ -43,11 +45,10 @@ class DetailScreen extends StatelessWidget {
       action: SnackBarAction(
         label: Strings.downloadViewQueue,
         onPressed: () {
-          Navigator.of(context, rootNavigator: true).push(
-            MaterialPageRoute(
-              builder: (_) => const DownloadManagementScreen(),
-            ),
-          );
+          // 合并页：回主页并切到本地缓存 Tab（下载队列在顶部）。
+          Navigator.of(context, rootNavigator: true)
+              .popUntil((route) => route.isFirst);
+          MainScreen.pendingTab.value = 4;
         },
       ),
     ));
@@ -234,6 +235,25 @@ class DetailScreen extends StatelessWidget {
                       }
                     }
 
+                    /// 长按音频：从专辑文件树内手工指定字幕（写 album.json）。
+                    Future<void> handlePickSubtitle(Child file) async {
+                      final files = viewModel.files;
+                      if (files == null) return;
+                      final sub = await showSubtitlePickDialog(
+                        context,
+                        audio: file,
+                        files: files,
+                      );
+                      if (sub == null || !context.mounted) return;
+                      final ok = await viewModel.recordSubtitleMatch(file, sub);
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(ok
+                            ? '${Strings.subtitleMatchedToast}${sub.title ?? ''}'
+                            : Strings.subtitleMatchRecordFailed),
+                      ));
+                    }
+
                     /// 点击文件：视频已下载 → 直接开本地；否则走下载弹窗。
                     /// 音频进播放管线；字幕预览。外层 try/catch 保证任何
                     /// 平台异常（OpenFilex 等）都有 SnackBar，不会静默无反应。
@@ -272,6 +292,8 @@ class DetailScreen extends StatelessWidget {
                                 duration: Duration(seconds: 1),
                               ));
                           }
+                          await TranslationPlayFlow.prepareNormalPlay();
+                          if (!context.mounted) return;
                           await viewModel.playFile(file, context);
                           return;
                         }
@@ -301,6 +323,25 @@ class DetailScreen extends StatelessWidget {
                           );
                         }
                       }
+                    }
+
+                    /// 翻译+播放：查 Key → 耳侧检测/弹窗 → 开会话 → 原播放路径。
+                    Future<void> handleTranslatePlay(Child file) async {
+                      if (!viewModel.isAudioFile(file)) return;
+                      final ok = await TranslationPlayFlow.prepareSession(
+                        context: context,
+                        file: file,
+                        keys: DownloadService.candidateKeys(file),
+                        resolveLocalPath: viewModel.localPathIfDownloaded,
+                      );
+                      if (!ok || !context.mounted) return;
+                      ScaffoldMessenger.of(context)
+                        ..clearSnackBars()
+                        ..showSnackBar(const SnackBar(
+                          content: Text(Strings.translationPlayStarting),
+                          duration: Duration(seconds: 1),
+                        ));
+                      await viewModel.playFile(file, context);
                     }
 
                     return Column(
@@ -353,6 +394,8 @@ class DetailScreen extends StatelessWidget {
                           onFolderDownload: runBatch,
                           onFileTap: handleFileTap,
                           onFilePlay: handleFileTap,
+                          onFileTranslatePlay: handleTranslatePlay,
+                          onFilePickSubtitle: handlePickSubtitle,
                           onFileDownload: (file) => runDownload(
                             file,
                             openOnDone: false,

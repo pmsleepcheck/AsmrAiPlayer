@@ -14,6 +14,12 @@ import './utils/audio_error_handler.dart';
 import './state/playback_state_manager.dart';
 import './controllers/playback_controller.dart';
 import './events/playback_event_hub.dart';
+import './translation/ear_channel_router.dart';
+import './utils/presigned_url.dart';
+import 'package:aaplay/data/models/files/child.dart';
+import 'package:aaplay/data/models/files/files.dart';
+import 'package:aaplay/data/models/playback/playback_state.dart';
+import 'package:aaplay/data/services/api_service.dart';
 
 class AudioPlayerService implements IAudioPlayerService {
   late final AudioPlayer _player;
@@ -76,6 +82,9 @@ class AudioPlayerService implements IAudioPlayerService {
   Future<void> _init() async {
     try {
       if (!_coreBuilt) {
+        // media_kit 角色认领：主轨必须在第一个 AudioPlayer() 前入队，
+        // 否则平台 init 无法区分主/翻译轨（见 EarChannelRouter）。
+        EarChannelRouter.expectMainPlayer();
         _player = AudioPlayer();
         _notificationService = AudioNotificationService(
           _player,
@@ -203,6 +212,12 @@ class AudioPlayerService implements IAudioPlayerService {
     await _playbackController.next();
   }
 
+  @override
+  Future<void> setVolume(double volume) async {
+    await ready;
+    await _player.setVolume(volume.clamp(0.0, 1.0));
+  }
+
   // 上下文管理
   @override
   Future<void> playWithContext(PlaybackContext context) async {
@@ -286,10 +301,30 @@ class AudioPlayerService implements IAudioPlayerService {
 
       AppLogger.debug('已加载保存的状态: workId=${state.work.id}');
 
+      // 持久化的 mediaDownloadUrl 是上一会话签发的预签名 URL（X-Amz-* 每次
+      // 会话重新签发），跨会话已过期。直接拿去 setAudioSource 会把平台侧
+      // （mpv / just_audio 本地代理）卡进死源的僵尸加载：Dart 侧 timeout
+      // 不会取消底层加载，之后每次点播都在串行链上排队超时——表现为
+      // 「第二次启动后播放全部失败」。因此恢复前先向 API 拉全新文件树换新
+      // 签名；拉不到（离线等）且旧 URL 已判定过期 → 跳过恢复并清掉存档，
+      // 避免每次启动重复踩雷；识别不出签名信息（本地快照等）保持原行为。
+      var files = state.files;
+      var currentFile = state.currentFile;
+      final refreshed = await _refreshRestoreFiles(state);
+      if (refreshed != null) {
+        files = refreshed.$1;
+        currentFile = refreshed.$2;
+        AppLogger.debug('恢复播放状态：已用全新签名的文件树');
+      } else if (PresignedUrl.isExpired(currentFile.mediaDownloadUrl) == true) {
+        AppLogger.warning('恢复播放状态跳过：预签名 URL 已过期且刷新失败，清除存档');
+        await _stateManager.clearSavedState();
+        return;
+      }
+
       final context = PlaybackContext(
         work: state.work,
-        files: state.files,
-        currentFile: state.currentFile,
+        files: files,
+        currentFile: currentFile,
         playMode: state.playMode,
       );
 
@@ -302,13 +337,23 @@ class AudioPlayerService implements IAudioPlayerService {
       }
 
       try {
-        await _playbackController.setPlaybackContext(
-          context,
-          initialPosition: Duration(milliseconds: state.position),
-        );
+        await _playbackController
+            .setPlaybackContext(
+              context,
+              initialPosition: Duration(milliseconds: state.position),
+            )
+            .timeout(const Duration(seconds: 8));
         AppLogger.debug('播放状态恢复成功');
       } catch (e) {
+        // 超时/失败时底层平台加载可能仍挂起，best-effort stop 复位平台侧；
+        // 并清掉这份（大概率已过期的）存档，避免下次启动重复卡死。
         AppLogger.error('设置播放上下文失败，跳过状态恢复', e);
+        try {
+          await _player.stop().timeout(const Duration(seconds: 2));
+        } catch (_) {
+          // 复位失败也接受：存档已清，下次启动不会再触发本轮恢复。
+        }
+        await _stateManager.clearSavedState();
       }
     } catch (e, stack) {
       AudioErrorHandler.handleError(
@@ -319,6 +364,48 @@ class AudioPlayerService implements IAudioPlayerService {
       );
       rethrow;
     }
+  }
+
+  /// 恢复前刷新文件树：向 API 重拉该作品的 tracks（带全新预签名 URL），
+  /// 并在新树中找到与持久化 currentFile 对应的节点（优先 hash，回退
+  /// title+type）。任何失败返回 null，由调用方决定降级策略。
+  Future<(Files, Child)?> _refreshRestoreFiles(PlaybackState state) async {
+    final workId = state.work.id;
+    if (workId == null) return null;
+    try {
+      final freshFiles = await GetIt.I<ApiService>()
+          .getWorkFiles(workId.toString())
+          .timeout(const Duration(seconds: 6));
+      final match = _findChildInTree(freshFiles.children, state.currentFile);
+      if (match == null) {
+        AppLogger.warning('刷新文件树成功但未匹配到当前文件，沿用持久化状态');
+        return null;
+      }
+      return (freshFiles, match);
+    } catch (e) {
+      AppLogger.warning('刷新恢复文件树失败（可能离线），沿用持久化状态: $e');
+      return null;
+    }
+  }
+
+  /// 在文件树中递归查找与 [target] 对应的节点：hash 一致优先（下载/缓存
+  /// 身份键），无 hash 时回退 title+type 精确匹配。
+  static Child? _findChildInTree(List<Child>? nodes, Child target) {
+    if (nodes == null) return null;
+    final targetHash = target.hash;
+    for (final node in nodes) {
+      if (targetHash != null &&
+          targetHash.isNotEmpty &&
+          node.hash == targetHash) {
+        return node;
+      }
+      if (node.title == target.title && node.type == target.type) {
+        return node;
+      }
+      final nested = _findChildInTree(node.children, target);
+      if (nested != null) return nested;
+    }
+    return null;
   }
 
   @override

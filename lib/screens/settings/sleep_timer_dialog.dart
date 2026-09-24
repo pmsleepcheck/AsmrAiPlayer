@@ -4,6 +4,7 @@ import 'package:aaplay/core/platform/sleep_timer_controller.dart';
 
 /// 睡眠定时单选对话框：关闭 / 15 / 30 / 45 / 60 / 90 分钟。
 /// 选择即写入 [SleepTimerController] 并关闭（无确认按钮，符合单选语义）。
+/// 激活中的档位额外显示 **剩余时间**（非固定总时长）。
 class SleepTimerDialog extends StatelessWidget {
   final SleepTimerController controller;
 
@@ -15,10 +16,21 @@ class SleepTimerDialog extends StatelessWidget {
     final current = controller.minutes;
 
     Widget option(String label, int? minutes) {
-      final selected = current == minutes;
+      final selected = current == minutes && minutes != null;
+      final trailing = selected
+          ? Icon(Icons.check, color: cs.primary)
+          : null;
       return ListTile(
         title: Text(label),
-        trailing: selected ? Icon(Icons.check, color: cs.primary) : null,
+        trailing: selected && controller.isActive
+            ? Text(
+                Strings.sleepTimerRemaining(controller.remaining),
+                style: Theme.of(context)
+                    .textTheme
+                    .labelMedium
+                    ?.copyWith(color: cs.primary),
+              )
+            : trailing,
         onTap: () {
           controller.setMinutes(minutes);
           Navigator.pop(context);
@@ -30,13 +42,16 @@ class SleepTimerDialog extends StatelessWidget {
       title: const Text(Strings.sleepTimer),
       content: SizedBox(
         width: double.maxFinite,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            option(Strings.sleepTimerOff, null),
-            for (final m in SleepTimerController.presetMinutes)
-              option(Strings.sleepTimerMinutes(m), m),
-          ],
+        child: ListenableBuilder(
+          listenable: controller,
+          builder: (context, _) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              option(Strings.sleepTimerOff, null),
+              for (final m in SleepTimerController.presetMinutes)
+                option(Strings.sleepTimerMinutes(m), m),
+            ],
+          ),
         ),
       ),
       actions: [

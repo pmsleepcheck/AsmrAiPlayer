@@ -324,6 +324,22 @@ class DetailViewModel extends ChangeNotifier {
     return ext != null && _subtitleExtensions.contains(ext);
   }
 
+  /// 手工指定字幕：写 album.json（覆盖已有记录）。
+  Future<bool> recordSubtitleMatch(Child audio, Child subtitle) async {
+    final files = _files;
+    final workId = work.id?.toString();
+    if (files == null || workId == null) return false;
+    final audioPath = FilePath.getPath(audio, files);
+    final subPath = FilePath.getPath(subtitle, files);
+    if (audioPath == null || subPath == null) return false;
+    return _downloadService.recordSubtitleMatch(
+      workId,
+      audioPath: audioPath,
+      subtitlePath: subPath,
+      overwrite: true,
+    );
+  }
+
   /// 纯函数：递归收集子树下所有音频，并就近（同目录同级）配对字幕。
   /// 字幕匹配只在该音频所在目录的兄弟节点中找（与 [SubtitleLoader]
   /// `findSubtitleFile` 的 `getSiblings` 语义一致）。
@@ -366,6 +382,8 @@ class DetailViewModel extends ChangeNotifier {
       file: file,
       onProgress: onProgress,
       cancelToken: cancelToken,
+      work: work,
+      files: _files,
     );
     if (result.isPlayable &&
         isAudioFile(file) &&
@@ -377,6 +395,8 @@ class DetailViewModel extends ChangeNotifier {
             workId: work.id.toString(),
             file: sub,
             cancelToken: cancelToken,
+            work: work,
+            files: _files,
           );
         } catch (e) {
           AppLogger.warning('配对字幕下载失败（不影响音频）: $e');
@@ -450,6 +470,8 @@ class DetailViewModel extends ChangeNotifier {
         file: audio,
         cancelToken: cancelToken,
         onProgress: (p) => onProgress(i + 1, items.length, name, p),
+        work: work,
+        files: _files,
       );
       switch (r.status) {
         case DownloadStatus.success:
@@ -469,6 +491,8 @@ class DetailViewModel extends ChangeNotifier {
             workId: work.id.toString(),
             file: sub,
             cancelToken: cancelToken,
+            work: work,
+            files: _files,
           );
           // 字幕下载被取消也要让整批标记 cancelled（否则末项音频带
           // 字幕、用户在字幕阶段取消时，循环自然结束会误报"完成"）。

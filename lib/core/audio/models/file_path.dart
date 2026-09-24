@@ -112,6 +112,33 @@ class FilePath {
     return current;
   }
 
+  /// 根据 `/a/b/c.ext` 路径取回树内节点（找不到 → null）。
+  static Child? childByPath(Files root, String path) {
+    final segments =
+        path.split(separator).where((s) => s.isNotEmpty).toList();
+    if (segments.isEmpty) return null;
+
+    List<Child>? current = root.children;
+    Child? node;
+    for (var i = 0; i < segments.length; i++) {
+      if (current == null) return null;
+      Child? next;
+      for (final child in current) {
+        if (child.title == segments[i]) {
+          next = child;
+          break;
+        }
+      }
+      if (next == null) return null;
+      node = next;
+      if (i < segments.length - 1) {
+        if (next.type != 'folder') return null;
+        current = next.children;
+      }
+    }
+    return node;
+  }
+
   /// 查找第一个包含音频文件的目录路径
   /// 返回从根目录到目标目录的完整路径数组
   static List<String>? findFirstAudioFolderPath(

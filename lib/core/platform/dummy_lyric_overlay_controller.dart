@@ -5,6 +5,9 @@ class DummyLyricOverlayController implements ILyricOverlayController {
   static const _tag = 'LyricOverlay';
 
   @override
+  bool get isSupported => false;
+
+  @override
   Future<void> initialize() async {}
 
   @override

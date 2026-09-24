@@ -9,6 +9,9 @@ import 'package:aaplay/core/download/download_service.dart';
 import 'package:aaplay/presentation/viewmodels/player_viewmodel.dart';
 import 'package:aaplay/core/theme/app_spacing.dart';
 import 'package:aaplay/widgets/player/player_controls.dart';
+import 'package:aaplay/widgets/player/translation_controls.dart';
+import 'package:aaplay/widgets/player/subtitle_mode_controls.dart';
+import 'package:aaplay/widgets/player/subtitle_caption_band.dart';
 import 'package:aaplay/widgets/player/waveform_progress.dart';
 import 'package:aaplay/widgets/player/square_cover.dart';
 import 'package:aaplay/screens/detail_screen.dart';
@@ -16,9 +19,11 @@ import 'package:aaplay/widgets/lyrics/components/player_lyric_view.dart';
 import 'package:aaplay/widgets/player/player_work_info.dart';
 import 'package:aaplay/core/platform/wakelock_controller.dart';
 import 'package:aaplay/core/platform/sleep_timer_controller.dart';
+import 'package:aaplay/core/settings/app_settings_service.dart';
 import 'package:aaplay/screens/settings/sleep_timer_dialog.dart';
 import 'package:aaplay/common/constants/strings.dart';
 import 'package:aaplay/core/subtitle/subtitle_import_service.dart';
+import 'package:aaplay/widgets/detail/subtitle_pick_dialog.dart';
 
 class PlayerScreen extends StatefulWidget {
   const PlayerScreen({super.key});
@@ -69,6 +74,10 @@ class _LyricOverlayActionState extends State<_LyricOverlayAction> {
   @override
   Widget build(BuildContext context) {
     final manager = widget.manager;
+    if (!manager.isSupported) {
+      // Windows 等无系统悬浮能力：入口不显示（改由播放页字幕条负责）。
+      return const SizedBox.shrink();
+    }
     final theme = Theme.of(context);
     final iconColor = manager.isEditable ? theme.colorScheme.primary : null;
     final tooltipMsg = manager.isShowing
@@ -168,11 +177,54 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _showLyrics = false;
   bool _canSwitchView = true;
   late final PlayerViewModel _viewModel;
+  late final AppSettingsService _settings;
+  SubtitleDisplayMode? _lastSubtitleMode;
 
   @override
   void initState() {
     super.initState();
     _viewModel = GetIt.I<PlayerViewModel>();
+    _settings = GetIt.I<AppSettingsService>();
+    _lastSubtitleMode = _settings.subtitleDisplayMode;
+    _settings.addListener(_onSettingsChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncOverlay(initial: true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _settings.removeListener(_onSettingsChanged);
+    super.dispose();
+  }
+
+  void _onSettingsChanged() {
+    if (!mounted) return;
+    if (_settings.subtitleDisplayMode == _lastSubtitleMode) return;
+    _lastSubtitleMode = _settings.subtitleDisplayMode;
+    _syncOverlay(initial: false);
+  }
+
+  /// 字幕模式 → 系统悬浮字幕同步：
+  /// - `popup` + 平台支持 → 已授权则 show；未授权仅在用户主动切换时请求。
+  /// - 离开 `popup` → hide。
+  /// Windows 等无能力平台直接返回（字幕条负责可见反馈）。
+  void _syncOverlay({required bool initial}) {
+    final manager = GetIt.I<LyricOverlayManager>();
+    if (!manager.isSupported) return;
+    final mode = _settings.subtitleDisplayMode;
+    if (mode == SubtitleDisplayMode.popup) {
+      manager.checkPermission().then((granted) {
+        if (!mounted || _settings.subtitleDisplayMode != mode) return;
+        if (granted) {
+          manager.show().ignore();
+        } else if (!initial) {
+          manager.showWithPermissionCheck(context).ignore();
+        }
+      }).ignore();
+    } else if (manager.isShowing) {
+      manager.hide().ignore();
+    }
   }
 
   Widget _buildContent() {
@@ -309,7 +361,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   Expanded(
                     child: Text(
                       minutes != null
-                          ? Strings.playerSleepTimerActive(minutes)
+                          ? Strings.playerSleepTimerActive(
+                              sleepTimer.remaining,
+                            )
                           : Strings.playerSleepTimerInactive,
                       style: AppTextStyles.labelMedium
                           .copyWith(color: cs.onSurface),
@@ -430,9 +484,32 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text(Strings.subtitleRemoved)),
                     );
+                  } else if (value == 'pick') {
+                    final playbackContext = _viewModel.currentContext;
+                    final audio = playbackContext?.currentFile;
+                    final files = playbackContext?.files;
+                    if (audio == null || files == null) return;
+                    final sub = await showSubtitlePickDialog(
+                      context,
+                      audio: audio,
+                      files: files,
+                    );
+                    if (sub == null || !context.mounted) return;
+                    final ok =
+                        await _viewModel.assignSubtitleFromAlbum(sub);
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text(ok
+                          ? '${Strings.subtitleMatchedToast}${sub.title ?? ''}'
+                          : Strings.subtitleMatchRecordFailed),
+                    ));
                   }
                 },
                 itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'pick',
+                    child: Text(Strings.pickSubtitleFromAlbum),
+                  ),
                   const PopupMenuItem(
                     value: 'import',
                     child: Text(Strings.importSubtitle),
@@ -480,7 +557,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   }
                 },
                 behavior: HitTestBehavior.opaque,
-                child: _buildContent(),
+                child: Stack(
+                  children: [
+                    _buildContent(),
+                    // 应用内字幕条：封面/歌词视图下均贴底显示（模式由设置驱动）。
+                    const Positioned(
+                      left: 16,
+                      right: 16,
+                      bottom: 8,
+                      child: SubtitleCaptionBand(),
+                    ),
+                  ],
+                ),
               ),
             ),
             Padding(
@@ -488,7 +576,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
               child: Column(
                 children: [
                   const WaveformProgress(),
-                  const SizedBox(height: AppSpacing.space16),
+                  const SizedBox(height: AppSpacing.space8),
+                  // 字幕开关 + 模式切换：任何播放方式下常显（bug.txt 3）。
+                  const SubtitleModeControls(),
+                  const TranslationControls(),
+                  const SizedBox(height: AppSpacing.space8),
                   const PlayerControls(),
                   const SizedBox(height: AppSpacing.space20),
                   _buildSleepTimerFooter(sleepTimer),

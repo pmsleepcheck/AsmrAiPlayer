@@ -14,8 +14,8 @@ import 'package:aaplay/screens/browse/circles_screen.dart';
 import 'package:aaplay/screens/browse/tags_screen.dart';
 import 'package:aaplay/screens/browse/voice_actors_screen.dart';
 import 'package:aaplay/screens/about_screen.dart';
-import 'package:aaplay/screens/download_management_screen.dart';
 import 'package:aaplay/screens/favorites_screen.dart';
+import 'package:aaplay/screens/main_screen.dart';
 import 'package:aaplay/screens/settings/settings_screen.dart';
 import 'package:aaplay/widgets/common/brand_wordmark.dart';
 import 'package:aaplay/widgets/sidebar/sidebar_group.dart';
@@ -28,7 +28,11 @@ import 'package:aaplay/widgets/sidebar/sidebar_tile.dart';
 /// **不引入任何全屏 BackdropFilter**（旧版真机 256ms 首开 jank，见
 /// docs/todos/done/20260515-sidebar-first-open-jank.md）。
 class SidebarMenu extends StatelessWidget {
-  const SidebarMenu({super.key});
+  const SidebarMenu({super.key, this.onNavigateToTab});
+
+  /// MainScreen 注入的底部 Tab 切换回调；null 表示当前不在 MainScreen 栈上
+  /// （如收藏页抽屉），此时「下载管理」回退为 pop 到主页 + pendingTab。
+  final void Function(int index)? onNavigateToTab;
 
   static const _drawerWidthFraction = 0.72;
   static const _drawerMobileMaxWidth = 360.0;
@@ -39,6 +43,19 @@ class SidebarMenu extends StatelessWidget {
     final rootNavigator = Navigator.of(context, rootNavigator: true);
     Navigator.pop(context);
     rootNavigator.push(CupertinoPageRoute(builder: (_) => screen));
+  }
+
+  /// 下载管理已并入本地缓存 Tab（index 4）。
+  void _navigateToDownloads(BuildContext context) {
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    final go = onNavigateToTab;
+    Navigator.pop(context);
+    if (go != null) {
+      go(4);
+      return;
+    }
+    rootNavigator.popUntil((route) => route.isFirst);
+    MainScreen.pendingTab.value = 4;
   }
 
   void _navigateToFavorites(BuildContext context) {
@@ -162,10 +179,7 @@ class SidebarMenu extends StatelessWidget {
                         SidebarTile(
                           icon: Icons.download_outlined,
                           title: Strings.downloadManagementMenu,
-                          onTap: () => _navigate(
-                            context,
-                            const DownloadManagementScreen(),
-                          ),
+                          onTap: () => _navigateToDownloads(context),
                         ),
                       ],
                     ),

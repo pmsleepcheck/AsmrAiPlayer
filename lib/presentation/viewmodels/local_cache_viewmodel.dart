@@ -29,8 +29,9 @@ class LocalCacheWorkGroup {
 }
 
 /// 「本地缓存」tab：列出全部已完成下载（DB 主数据源），按作品分组，
-/// 可按类型过滤、播放、删除。**不扫盘做列表**（与
-/// [DownloadService.listAllDownloads] 语义一致）；删除走
+/// 可按类型过滤、播放、删除。列表本身**不扫盘**（与
+/// [DownloadService.listAllDownloads] 语义一致）；进页/下拉/扫描按钮可经
+/// [scanAndLoad] 显式扫盘回填 DB 后再刷新；删除走
 /// [DownloadService.removeByEntry]（DB 行先行不变量）。
 class LocalCacheViewModel extends ChangeNotifier {
   final DownloadService _downloadService;
@@ -48,6 +49,7 @@ class LocalCacheViewModel extends ChangeNotifier {
   LocalCacheFilter _filter = LocalCacheFilter.all;
   List<LocalCacheWorkGroup> _groups = const [];
   int? _totalCount;
+  int? _lastScanAdded;
   bool _disposed = false;
 
   bool get isLoading => _isLoading;
@@ -57,6 +59,9 @@ class LocalCacheViewModel extends ChangeNotifier {
 
   /// 当前过滤下可见条数；首次加载完成前为 null（AppBar 不显示 (0)）。
   int? get visibleCount => _totalCount;
+
+  /// 最近一次 [scanAndLoad] 的新增条数；尚未扫过 = null。
+  int? get lastScanAdded => _lastScanAdded;
 
   static const _videoExtensions = {'mp4', 'mkv', 'mov', 'avi', 'webm', 'm4v'};
 
@@ -80,7 +85,9 @@ class LocalCacheViewModel extends ChangeNotifier {
     return audioExt.contains(ext);
   }
 
-  Future<void> load({bool silent = false}) async {
+  /// [scan] 为 true 时先扫盘回填 DB 再列（进页首扫用）；扫盘失败只记
+  /// 日志，不阻断 DB 列表加载。
+  Future<void> load({bool silent = false, bool scan = false}) async {
     if (_isLoading) return;
     _isLoading = true;
     if (!silent) {
@@ -88,6 +95,13 @@ class LocalCacheViewModel extends ChangeNotifier {
       notifyListeners();
     }
     try {
+      if (scan) {
+        try {
+          _lastScanAdded = await _downloadService.scanDownloadsRoots();
+        } catch (err) {
+          AppLogger.warning('本地缓存扫盘失败: $err');
+        }
+      }
       final entries = await _downloadService.listAllDownloads();
       final filtered = entries.where((e) {
         switch (_filter) {
@@ -134,6 +148,23 @@ class LocalCacheViewModel extends ChangeNotifier {
         notifyListeners();
       }
     }
+  }
+
+  /// 显式扫盘后刷新列表。返回本次新增条数；扫盘失败返回 null（列表仍
+  /// 尝试从 DB 加载）。UI 据此弹「扫描完成，新增 N 项」/「扫描失败」。
+  Future<int?> scanAndLoad() async {
+    if (_isLoading) return null;
+    int? added;
+    var failed = false;
+    try {
+      added = await _downloadService.scanDownloadsRoots();
+      _lastScanAdded = added;
+    } catch (e) {
+      AppLogger.warning('本地缓存扫盘失败: $e');
+      failed = true;
+    }
+    await load();
+    return failed ? null : added;
   }
 
   Future<void> setFilter(LocalCacheFilter f) async {

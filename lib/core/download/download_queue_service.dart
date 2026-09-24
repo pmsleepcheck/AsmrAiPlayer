@@ -23,6 +23,8 @@ typedef QueueDownloadFn = Future<DownloadResult> Function({
   required Child file,
   void Function(double progress)? onProgress,
   CancelToken? cancelToken,
+  Work? work,
+  Files? files,
 });
 
 /// 下载成功后自动播放的回调（生产接 `IAudioPlayerService.playWithContext`）。
@@ -274,10 +276,15 @@ class DownloadQueueService extends ChangeNotifier {
     _safeNotify();
 
     try {
+      // 下载前回填 work/files（best-effort）：成功后写 album.json 需要
+      // 专辑快照；缺省时 DownloadService 也会再从 work_snapshots 回退。
+      if (job.work == null || job.files == null) await _hydrate(job);
       final r = await _download(
         workId: job.workId,
         file: job.file,
         cancelToken: token,
+        work: job.work,
+        files: job.files,
         onProgress: (p) {
           job.progress = p;
           _safeNotify();
@@ -299,6 +306,8 @@ class DownloadQueueService extends ChangeNotifier {
               workId: job.workId,
               file: sub,
               cancelToken: token,
+              work: job.work,
+              files: job.files,
             );
           } catch (e) {
             AppLogger.warning('配对字幕下载失败（不影响音频）: $e');

@@ -6,11 +6,16 @@ import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:aaplay/core/download/album_metadata_writer.dart';
 import 'package:aaplay/core/download/models/download_entry.dart';
+import 'package:aaplay/core/download/models/work_snapshot.dart';
 import 'package:aaplay/core/download/storage/i_download_repository.dart';
+import 'package:aaplay/core/download/storage/i_work_snapshot_repository.dart';
 import 'package:aaplay/core/network/proxy_config.dart';
 import 'package:aaplay/core/settings/app_settings_service.dart';
 import 'package:aaplay/data/models/files/child.dart';
+import 'package:aaplay/data/models/files/files.dart';
+import 'package:aaplay/data/models/works/work.dart';
 import 'package:aaplay/utils/logger.dart';
 
 enum DownloadStatus {
@@ -54,15 +59,22 @@ class DownloadService {
 
   final IDownloadRepository _repository;
   final Dio _dio;
+  final AppSettingsService? _settings;
+  final IWorkSnapshotRepository? _snapshots;
 
-  /// [settings] 可选：提供时挂应用内代理（`ProxyConfig.apply`）；
-  /// 单元测试不传即可保持裸 `Dio()` 行为不变。
+  /// [settings] 可选：提供时挂应用内代理（`ProxyConfig.apply`）并允许读取
+  /// 附加缓存目录配置；单元测试不传即可保持裸 `Dio()` 行为不变。
+  /// [snapshots] 可选：`download()` 写 `album.json` 时 work/files 未直传
+  /// 的回退数据源（从 `work_snapshots` 表回填）。
   DownloadService({
     required IDownloadRepository repository,
     Dio? dio,
     AppSettingsService? settings,
+    IWorkSnapshotRepository? snapshots,
   })  : _repository = repository,
-        _dio = dio ?? Dio() {
+        _dio = dio ?? Dio(),
+        _settings = settings,
+        _snapshots = snapshots {
     if (settings != null) {
       ProxyConfig.apply(_dio, settings);
     }
@@ -181,11 +193,34 @@ class DownloadService {
   }
 
   /// 落盘文件名 = **接口返回的原始标题**（仅做 FS 安全化，保留可读性与
-  /// 扩展名）。物理唯一性由 `_destPath` 的 `<fileKey>/` 子目录保证，故此处
-  /// 不再用 md5 命名——用户在电脑上看到的就是接口文件列表里的名字。
+  /// 扩展名）。拍平布局下物理唯一性由 [_destPath] 的同名序号
+  /// （`名 (2).ext`）保证，不再依赖 `<fileKey>/` 子目录。
   static String diskFileName(Child file) {
     return sanitizeFileName(file.title ?? '');
   }
+
+  /// 作品目录名：优先可读标题（FS 安全化），无标题回退 [workId]。
+  /// 与数字 workId 目录并存；冲突序号由 `_workDir` 分配。
+  static String workDirName({String? title, required String workId}) {
+    final t = title?.trim();
+    if (t == null || t.isEmpty) return sanitizeFileName(workId);
+    return sanitizeFileName(t);
+  }
+
+  /// 同名冲突序号：`track.mp3` + n=2 → `track (2).mp3`；n=1 → 原名。
+  /// 扩展名（最后一个 `.` 后的段）保留在末尾；无扩展名则整体加后缀。
+  static String sequenceDiskName(String name, int n) {
+    if (n <= 1) return name;
+    final ext = p.extension(name);
+    final stem = name.substring(0, name.length - ext.length);
+    if (stem.isEmpty) return '$name ($n)';
+    return '$stem ($n)$ext';
+  }
+
+  /// 旧布局子目录名是否像 md5 fileKey（32 位小写十六进制）。
+  /// 拍平布局的作品根目录名是标题，**不能**当 fileKey 用。
+  static bool looksLikeFileKey(String name) =>
+      RegExp(r'^[0-9a-f]{32}$').hasMatch(name);
 
   /// 下载根目录：Android 优先外部应用专属目录（电脑可见、免权限），
   /// 取不到则回退内部私有目录；非 Android 仅用内部目录。
@@ -208,27 +243,352 @@ class DownloadService {
     return p.join(base.path, 'downloads');
   }
 
-  Future<Directory> _workDir(String workId) async {
-    final base = await _baseDir();
-    final dir = Directory(p.join(base.path, 'downloads', workId));
-    if (!await dir.exists()) await dir.create(recursive: true);
-    return dir;
+  /// 全部可扫描根目录 = 默认下载根 + 设置里的附加目录（Win/Android 同一
+  /// 代码路径）。附加目录是**只读扫描源**（新下载仍写默认根）；路径归一化
+  /// 去尾部分隔符并按字符串去重，默认根恒在首位。
+  Future<List<String>> downloadsRootPaths() async {
+    final out = <String>[];
+    final seen = <String>{};
+    void add(String raw) {
+      var path = raw.trim();
+      if (path.isEmpty) return;
+      while (path.length > 1 &&
+          (path.endsWith('/') || path.endsWith(r'\'))) {
+        path = path.substring(0, path.length - 1);
+      }
+      if (seen.add(path)) out.add(path);
+    }
+
+    add(await downloadsRootPath());
+    for (final dir in _settings?.downloadExtraDirs ?? const <String>[]) {
+      add(dir);
+    }
+    return out;
   }
 
-  /// 落盘路径 = `<下载根>/downloads/<workId>/<fileKey>/<原始标题>`。
-  /// 每个文件独占 `<fileKey>/` 子目录：同一作品树内不同文件夹的同名文件
-  /// （如各章节都有 `01.mp3`，但 hash/url 不同 → fileKey 不同）互不覆盖，
-  /// 同时文件名保持接口原样、用户在电脑上可读。tmp/bak/dest 同处该子目录，
-  /// 同卷 rename 原子写不变量不受影响。
-  Future<String> _destPath(String workId, Child file) async {
-    final dir = await _workDir(workId);
-    final sub = Directory(p.join(dir.path, fileKey(file)));
-    if (!await sub.exists()) await sub.create(recursive: true);
-    return p.join(sub.path, diskFileName(file));
+  /// 定位作品目录（默认根优先，其次附加目录）；都不存在 → null。
+  ///
+  /// 解析顺序：① legacy `<root>/<workId>`（数字目录，存量布局）→
+  /// ② 子目录 `album.json` 的 `work.id == workId`（标题拍平布局）→
+  /// ③ `work_snapshots` 标题 → `<root>/<sanitize(title)>`。
+  Future<Directory?> findWorkDir(String workId) async {
+    final roots = await downloadsRootPaths();
+    for (final root in roots) {
+      final legacy = Directory(p.join(root, workId));
+      if (await legacy.exists()) return legacy;
+    }
+    for (final root in roots) {
+      final rootDir = Directory(root);
+      if (!await rootDir.exists()) continue;
+      try {
+        await for (final entity in rootDir.list(followLinks: false)) {
+          if (entity is! Directory) continue;
+          final owner = await _albumWorkId(entity);
+          if (owner == workId) return entity;
+        }
+      } catch (e) {
+        AppLogger.warning('扫描作品目录失败（跳过）: $root ($e)');
+      }
+    }
+    try {
+      final title = (await _snapshots?.load(workId))?.work.title;
+      if (title != null && title.trim().isNotEmpty) {
+        final name = workDirName(title: title, workId: workId);
+        for (final root in roots) {
+          final dir = Directory(p.join(root, name));
+          if (await dir.exists()) return dir;
+        }
+      }
+    } catch (_) {}
+    return null;
   }
 
-  /// best-effort 删除已空的 `<fileKey>/` 子目录（删文件后调用），
-  /// 让用户可见的下载文件夹不残留空 md5 目录；失败无害（与孤儿文件同理）。
+  /// 读 `<dir>/album.json` 的 `work.id`（字符串形式）；缺失/损坏 → null。
+  Future<String?> _albumWorkId(Directory dir) async {
+    try {
+      final file = File(p.join(dir.path, AlbumMetadataWriter.fileName));
+      if (!await file.exists()) return null;
+      final decoded = jsonDecode(await file.readAsString());
+      if (decoded is! Map<String, dynamic>) return null;
+      final work = decoded['work'];
+      if (work is! Map<String, dynamic>) return null;
+      final id = work['id'];
+      if (id == null) return null;
+      return id.toString();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 读 album.json 的 `subtitleMatches`（无文件 → 空 map，best-effort）。
+  Future<Map<String, String>> readSubtitleMatches(String workId) async {
+    try {
+      final dir = await findWorkDir(workId);
+      if (dir == null) return {};
+      return await AlbumMetadataWriter.readSubtitleMatches(dir);
+    } catch (e) {
+      AppLogger.warning('读取 subtitleMatches 失败: $workId ($e)');
+      return {};
+    }
+  }
+
+  /// 写一条字幕匹配进 album.json（best-effort，失败只 log）。
+  /// [overwrite] false = 自动匹配（已有记录不覆盖）；true = 手工选择。
+  /// 目录不存在时在**默认根**下创建（下载只写默认根）。
+  Future<bool> recordSubtitleMatch(
+    String workId, {
+    required String audioPath,
+    required String subtitlePath,
+    bool overwrite = false,
+  }) async {
+    try {
+      var dir = await findWorkDir(workId);
+      dir ??= await _workDir(workId);
+      await AlbumMetadataWriter.recordSubtitleMatch(
+        dir,
+        audioPath: audioPath,
+        subtitlePath: subtitlePath,
+        overwrite: overwrite,
+      );
+      return true;
+    } catch (e) {
+      AppLogger.warning('写入 subtitleMatches 失败: $workId ($e)');
+      return false;
+    }
+  }
+
+  /// 扫描全部根目录（默认 + 附加），把「盘上有、DB 缺/失效」的文件回填进
+  /// `downloads` 表，并把作品根下的 `album.json` 导入 `work_snapshots`。
+  /// 返回本次**新增/修复**的条目数。仅显式触发（进页/下拉/按钮），不进播放
+  /// 热路径。失败的单个目录只记日志，不中断其余根。
+  Future<int> scanDownloadsRoots() async {
+    final roots = await downloadsRootPaths();
+    return scanRoots(roots);
+  }
+
+/// 对给定 [roots] 执行扫盘（供 [scanDownloadsRoots] 与单测注入临时目录）。
+  ///
+  /// 双布局（盘为准）：
+  /// - **legacy** `<root>/<workId>/<fileKey>/<文件>`：fileKey 取路径段；
+  /// - **拍平** `<root>/<标题>/<文件>`：workId = `album.json` 的 `work.id`
+  ///   （无 sidecar 回退目录名），fileKey = sidecar `fileKeys`（无则合成
+  ///   md5(path)，徽章可能 miss 但列表/删除可用）。
+  /// - 已有有效行（文件在盘）**不改 path**（路径稳定不变量）；
+  /// - 缺行/失效行 → upsert（`mediaType:''`）；
+  /// - `album.json` → 仅当快照缺失或 sidecar 更新时写入 `work_snapshots`。
+  Future<int> scanRoots(Iterable<String> roots) async {
+    var added = 0;
+    final byPath = <String, DownloadEntry>{};
+    try {
+      for (final e in await _repository.listAllOldestFirst()) {
+        byPath[e.filePath] = e;
+      }
+    } catch (_) {}
+    for (final root in roots) {
+      try {
+        final rootDir = Directory(root);
+        if (!await rootDir.exists()) continue;
+        await for (final workEntity in rootDir.list(followLinks: false)) {
+          if (workEntity is! Directory) continue;
+          final workId =
+              await _albumWorkId(workEntity) ?? p.basename(workEntity.path);
+          await _importAlbumIfNewer(workId, workEntity);
+          final fileKeys = await AlbumMetadataWriter.readFileKeys(workEntity);
+          await for (final child in workEntity.list(followLinks: false)) {
+            if (child is File) {
+              if (await _scanFlatFile(
+                workId: workId,
+                file: child,
+                fileKeys: fileKeys,
+                byPath: byPath,
+              )) {
+                added++;
+              }
+              continue;
+            }
+            if (child is! Directory) continue;
+            // legacy：作品根下的 <fileKey>/ 子目录。
+            final key = p.basename(child.path);
+            // 有效行不改 path：DB 已有且文件在盘 → 跳过（只补缺/失效）。
+            final existing = await _repository.find(workId, key);
+            if (existing != null && await _filePresent(existing.filePath)) {
+              continue;
+            }
+            if (existing != null) {
+              try {
+                await _repository.remove(workId, key);
+              } catch (_) {}
+            }
+            await for (final f in child.list(followLinks: false)) {
+              if (f is! File) continue;
+              final path = f.path;
+              if (path.endsWith('.dl_tmp') || path.endsWith('.dl_bak')) {
+                continue;
+              }
+              final stat = await f.stat();
+              try {
+                final row = DownloadEntry(
+                  workId: workId,
+                  fileKey: key,
+                  fileName: p.basename(path),
+                  filePath: path,
+                  mediaType: '',
+                  sourceUrl: '',
+                  size: stat.size,
+                  createdAt: stat.modified.millisecondsSinceEpoch,
+                );
+                await _repository.upsert(row);
+                byPath[path] = row;
+                added++;
+                AppLogger.debug('扫盘回填下载行: $workId/$key');
+              } catch (e) {
+                AppLogger.warning('扫盘回填下载行失败: $e');
+              }
+              break; // 一 key 一成品（DB UNIQUE(work_id, file_key)）。
+            }
+          }
+        }
+      } catch (e) {
+        AppLogger.warning('扫盘目录失败（跳过）: $root ($e)');
+      }
+    }
+    return added;
+  }
+
+  /// 拍平布局单文件回填：路径稳定优先；缺行经 `fileKeys`/合成 key upsert。
+  /// 返回是否新增了 DB 行。
+  Future<bool> _scanFlatFile({
+    required String workId,
+    required File file,
+    required Map<String, String> fileKeys,
+    required Map<String, DownloadEntry> byPath,
+  }) async {
+    final path = file.path;
+    final name = p.basename(path);
+    if (path.endsWith('.dl_tmp') || path.endsWith('.dl_bak')) return false;
+    if (name == AlbumMetadataWriter.fileName) return false;
+    try {
+      final byHit = byPath[path];
+      if (byHit != null && await _filePresent(path)) {
+        return false; // 路径稳定：有效行不改。
+      }
+      final key = fileKeys[name] ??
+          byHit?.fileKey ??
+          md5.convert(utf8.encode(path)).toString();
+      final existing = await _repository.find(workId, key);
+      if (existing != null && await _filePresent(existing.filePath)) {
+        return false; // 同 key 已有有效行（可能指向另一路径）。
+      }
+      if (existing != null) {
+        try {
+          await _repository.remove(workId, key);
+        } catch (_) {}
+      }
+      final stat = await file.stat();
+      final row = DownloadEntry(
+        workId: workId,
+        fileKey: key,
+        fileName: name,
+        filePath: path,
+        mediaType: '',
+        sourceUrl: '',
+        size: stat.size,
+        createdAt: stat.modified.millisecondsSinceEpoch,
+      );
+      await _repository.upsert(row);
+      byPath[path] = row;
+      AppLogger.debug('扫盘回填拍平下载行: $workId/$name');
+      return true;
+    } catch (e) {
+      AppLogger.warning('扫盘回填拍平行失败: $path ($e)');
+      return false;
+    }
+  }
+
+  /// 读 `<workDir>/album.json`，仅当快照缺失或 sidecar 更新时导入
+  /// `work_snapshots`（best-effort：解析/IO 失败只 log）。
+  Future<void> _importAlbumIfNewer(String workId, Directory workDir) async {
+    final repo = _snapshots;
+    if (repo == null) return;
+    try {
+      final file = File(p.join(workDir.path, AlbumMetadataWriter.fileName));
+      if (!await file.exists()) return;
+      final decoded = jsonDecode(await file.readAsString());
+      if (decoded is! Map<String, dynamic>) return;
+      final sidecar = WorkSnapshot.fromJson(decoded);
+      final existing = await repo.load(workId);
+      if (existing != null && existing.updatedAt >= sidecar.updatedAt) {
+        return;
+      }
+      await repo.save(
+        workId,
+        work: sidecar.work,
+        files: sidecar.files,
+      );
+      AppLogger.debug('扫盘导入专辑快照: $workId');
+    } catch (e) {
+      AppLogger.warning('读取/导入 album.json 失败: $workId ($e)');
+    }
+  }
+
+  /// 定位/创建写入用作品目录（**仅默认根**，与旧 `_workDir` 一致）。
+  /// 已有目录（legacy 数字 / album 归属匹配 / 无 sidecar 的同名标题）直接用；
+  /// 标题目录被**其他** `work.id` 占用时分配 `标题 (n)` 序号。
+  Future<Directory> _workDir(String workId, {Work? work}) async {
+    final existing = await findWorkDir(workId);
+    if (existing != null) return existing;
+    var w = work;
+    if (w == null) {
+      try {
+        w = (await _snapshots?.load(workId))?.work;
+      } catch (_) {}
+    }
+    final base = workDirName(title: w?.title, workId: workId);
+    final baseDir = await _baseDir();
+    var name = base;
+    var n = 1;
+    while (true) {
+      final dir = Directory(p.join(baseDir.path, 'downloads', name));
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+        return dir;
+      }
+      final owner = await _albumWorkId(dir);
+      // 无 sidecar 的空/用户目录视为可复用；归属他人则加序号。
+      if (owner == null || owner == workId) return dir;
+      n++;
+      name = sequenceDiskName(base, n);
+      if (n > 1000) {
+        // 防御：序号穷尽仍冲突 → 用 workId 兜底（可读性让位于可写）。
+        final fallback =
+            Directory(p.join(baseDir.path, 'downloads', sanitizeFileName(workId)));
+        if (!await fallback.exists()) await fallback.create(recursive: true);
+        return fallback;
+      }
+    }
+  }
+
+  /// 落盘路径 = `<下载根>/downloads/<作品标题>/<原始标题>`（拍平 + 同名序号）。
+  /// tmp/bak/dest 同目录，同卷 rename 原子写不变量不变。
+  /// 调用前应已通过 `localPathIfDownloaded` 去重（同 fileKey 已存在不进这里）。
+  Future<String> _destPath(Directory workDir, Child file) async {
+    final base = diskFileName(file);
+    var name = base;
+    var n = 1;
+    while (true) {
+      final dest = p.join(workDir.path, name);
+      final busy = await File(dest).exists() ||
+          await File('$dest.dl_tmp').exists() ||
+          await File('$dest.dl_bak').exists();
+      if (!busy) return dest;
+      n++;
+      name = sequenceDiskName(base, n);
+      if (n > 10000) return dest; // 防御死循环
+    }
+  }
+
+  /// best-effort 删除已空的作品目录（删文件后调用；含 album.json 则不会空）。
+  /// 失败无害（与孤儿文件同理）。
   Future<void> _pruneEmptyDir(String filePath) async {
     try {
       final parent = Directory(p.dirname(filePath));
@@ -241,8 +601,8 @@ class DownloadService {
   /// 已完成且文件确实在盘上的下载记录（按稳定身份 [key] 查）；若 DB 有行但
   /// 文件已丢失，删除失效行（一致性：失效行会让 app 误判已下载）后返回 null。
   ///
-  /// DB miss 时做**磁盘回退**：直接看 `downloads/<workId>/<key>/` 下是否已有
-  /// 成品文件（排除 `.dl_tmp`/`.dl_bak`），命中则 best-effort 回填 DB 行。
+  /// DB miss 时做**磁盘回退**：legacy `<workId>/<key>/` 或拍平目录
+  /// `fileKeys` 反查；命中则 best-effort 回填 DB 行。
   /// Windows 上 DB 路径不稳/行丢失时，文件仍在盘上也能匹配。
   Future<DownloadEntry?> findCompleted(String workId, String key) async {
     final entry = await _repository.find(workId, key);
@@ -269,39 +629,101 @@ class DownloadService {
     }
   }
 
-  /// 磁盘回退：`downloads/<workId>/<key>/` 下已有成品 → 回填 DB 并返回。
+  /// 磁盘回退：legacy `<workId>/<key>/` 或拍平作品目录（`fileKeys` 反查
+  /// [key] → 文件名）已有成品 → 回填 DB 并返回。
+  /// 遍历 [downloadsRootPaths]（默认根优先，附加目录随后）。
   Future<DownloadEntry?> _recoverFromDisk(String workId, String key) async {
-    try {
-      final base = await _baseDir();
-      final sub = Directory(p.join(base.path, 'downloads', workId, key));
-      if (!await sub.exists()) return null;
-      await for (final entity in sub.list(followLinks: false)) {
-        if (entity is! File) continue;
-        final path = entity.path;
-        if (path.endsWith('.dl_tmp') || path.endsWith('.dl_bak')) continue;
-        final stat = await entity.stat();
-        final recovered = DownloadEntry(
-          workId: workId,
-          fileKey: key,
-          fileName: p.basename(path),
-          filePath: path,
-          mediaType: '',
-          sourceUrl: '',
-          size: stat.size,
-          createdAt: stat.modified.millisecondsSinceEpoch,
-        );
-        try {
-          await _repository.upsert(recovered);
-          AppLogger.debug('磁盘回退回填下载行: $workId/$key');
-        } catch (e) {
-          AppLogger.warning('磁盘回填下载行失败（仍返回路径）: $e');
+    for (final root in await downloadsRootPaths()) {
+      try {
+        final legacy = Directory(p.join(root, workId, key));
+        final hit = await _firstMediaFile(legacy);
+        if (hit != null) {
+          return _upsertRecovered(workId, key, hit);
         }
-        return recovered;
+        // 拍平：作品根下 fileKeys 反查。
+        final workDir = Directory(p.join(root, workId));
+        if (await workDir.exists()) {
+          final flat = await _recoverFlat(workDir, workId, key);
+          if (flat != null) return flat;
+        }
+        final owned = await _findOwnedWorkDir(root, workId);
+        if (owned != null) {
+          final flat = await _recoverFlat(owned, workId, key);
+          if (flat != null) return flat;
+        }
+      } catch (e) {
+        AppLogger.warning('磁盘回退扫描失败: $root/$workId/$key ($e)');
       }
-    } catch (e) {
-      AppLogger.warning('磁盘回退扫描失败: $workId/$key ($e)');
     }
     return null;
+  }
+
+  /// 拍平作品目录内按 `fileKeys` 反查 [key]；命中且文件在盘 → 回填。
+  Future<DownloadEntry?> _recoverFlat(
+    Directory workDir,
+    String workId,
+    String key,
+  ) async {
+    final map = await AlbumMetadataWriter.readFileKeys(workDir);
+    String? name;
+    map.forEach((k, v) {
+      if (v == key) name = k;
+    });
+    if (name == null) return null;
+    final path = p.join(workDir.path, name!);
+    if (!await _filePresent(path)) return null;
+    return _upsertRecovered(workId, key, path);
+  }
+
+  /// 扫 [root] 下 album.json `work.id == workId` 的目录（拍平标题目录）。
+  Future<Directory?> _findOwnedWorkDir(String root, String workId) async {
+    final rootDir = Directory(root);
+    if (!await rootDir.exists()) return null;
+    try {
+      await for (final entity in rootDir.list(followLinks: false)) {
+        if (entity is! Directory) continue;
+        if (await _albumWorkId(entity) == workId) return entity;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// 目录下第一个非 tmp/bak 成品文件路径；无 → null。
+  Future<String?> _firstMediaFile(Directory dir) async {
+    if (!await dir.exists()) return null;
+    await for (final entity in dir.list(followLinks: false)) {
+      if (entity is! File) continue;
+      final path = entity.path;
+      if (path.endsWith('.dl_tmp') || path.endsWith('.dl_bak')) continue;
+      if (p.basename(path) == AlbumMetadataWriter.fileName) continue;
+      if (await _filePresent(path)) return path;
+    }
+    return null;
+  }
+
+  Future<DownloadEntry> _upsertRecovered(
+    String workId,
+    String key,
+    String path,
+  ) async {
+    final stat = await File(path).stat();
+    final recovered = DownloadEntry(
+      workId: workId,
+      fileKey: key,
+      fileName: p.basename(path),
+      filePath: path,
+      mediaType: '',
+      sourceUrl: '',
+      size: stat.size,
+      createdAt: stat.modified.millisecondsSinceEpoch,
+    );
+    try {
+      await _repository.upsert(recovered);
+      AppLogger.debug('磁盘回退回填下载行: $workId/$key');
+    } catch (e) {
+      AppLogger.warning('磁盘回填下载行失败（仍返回路径）: $e');
+    }
+    return recovered;
   }
 
   /// 若该文件已完整下载，返回本地路径（供离线播放走本地源）。
@@ -317,22 +739,53 @@ class DownloadService {
     return _recoverByFileName(workId, file);
   }
 
-  /// 最终回退：按 `diskFileName(file)` 扫该作品所有 `<fileKey>/` 子目录。
-  /// 仅唯一命中时回填主 key（同名多份 = 歧义，宁可 miss 不误配）。
+  /// 最终回退：按 `diskFileName(file)` 扫该作品目录——legacy 的
+  /// `<fileKey>/` 子目录 **和** 拍平的作品根（含 ` (n)` 序号名）。
+  /// 仅全局**唯一**命中才认（跨根同名多份 = 歧义，宁可 miss 不误配）。
   Future<String?> _recoverByFileName(String workId, Child file) async {
     try {
       final name = diskFileName(file);
-      final base = await _baseDir();
-      final workDir = Directory(p.join(base.path, 'downloads', workId));
-      if (!await workDir.exists()) return null;
       final matches = <String>[];
-      await for (final keyDir in workDir.list(followLinks: false)) {
-        if (keyDir is! Directory) continue;
-        final candidate = File(p.join(keyDir.path, name));
-        if (await _filePresent(candidate.path)) matches.add(candidate.path);
+      final seenDirs = <String>{};
+
+      for (final root in await downloadsRootPaths()) {
+        final candidates = <Directory>[];
+        void addDir(Directory d) {
+          if (seenDirs.add(p.canonicalize(d.path))) candidates.add(d);
+        }
+
+        final legacy = Directory(p.join(root, workId));
+        if (await legacy.exists()) addDir(legacy);
+        final owned = await _findOwnedWorkDir(root, workId);
+        if (owned != null) addDir(owned);
+        for (final workDir in candidates) {
+          // 拍平：作品根下的文件（含序号后缀）。
+          await for (final entity in workDir.list(followLinks: false)) {
+            if (entity is! File) continue;
+            final path = entity.path;
+            if (path.endsWith('.dl_tmp') || path.endsWith('.dl_bak')) {
+              continue;
+            }
+            if (p.basename(path) == AlbumMetadataWriter.fileName) continue;
+            if (p.basename(path) == name) {
+              matches.add(path);
+            } else if (_isSequencedOf(path, name)) {
+              matches.add(path);
+            }
+          }
+          // legacy：各 <fileKey>/ 子目录精确名。
+          await for (final keyDir in workDir.list(followLinks: false)) {
+            if (keyDir is! Directory) continue;
+            final candidate = File(p.join(keyDir.path, name));
+            if (await _filePresent(candidate.path)) matches.add(candidate.path);
+          }
+          // 同一逻辑目录只扫一次（legacy 根可能 = owned）。
+        }
       }
-      if (matches.length == 1) {
-        final path = matches.single;
+      // 去重（同一路径被两种布局规则各加一次）。
+      final unique = matches.toSet().toList();
+      if (unique.length == 1) {
+        final path = unique.single;
         AppLogger.debug('按文件名磁盘回退命中: $workId/$name');
         try {
           final stat = await File(path).stat();
@@ -351,13 +804,25 @@ class DownloadService {
         }
         return path;
       }
-      if (matches.length > 1) {
+      if (unique.length > 1) {
         AppLogger.warning('同名多份磁盘文件，跳过模糊回退: $workId/$name');
       }
     } catch (e) {
       AppLogger.warning('按文件名磁盘回退失败: $e');
     }
     return null;
+  }
+
+  /// [path] 是否为 `base` 的序号变体（`base (2).ext` 等，n≥2）。
+  static bool _isSequencedOf(String path, String base) {
+    final b = p.basename(path);
+    final ext = p.extension(base);
+    final stem = base.substring(0, base.length - ext.length);
+    if (stem.isEmpty) return false;
+    return RegExp(
+      '^${RegExp.escape(stem)} \\(\\d+\\)${RegExp.escape(ext)}\$',
+      caseSensitive: false,
+    ).hasMatch(b);
   }
 
   /// 批量解析某作品所有已完整下载的文件，供恢复/构建一个 N 轨播放列表时
@@ -413,27 +878,63 @@ class DownloadService {
     return map;
   }
 
-  /// 扫 `downloads/<workId>/<fileKey>/` → fileKey→绝对路径（一 key 取一个成品）。
+  /// 扫全部根的作品目录 → fileKey→绝对路径（一 key 一个成品；
+  /// 默认根先命中者优先，附加目录仅补默认根没有的 key）。
+  /// 双布局：legacy `<workId>/<fileKey>/` 子目录 + 拍平作品根
+  /// （`fileKeys` sidecar 反查；无 sidecar 不猜合成 key）。
   Future<Map<String, String>> _diskPathsForWork(String workId) async {
     final out = <String, String>{};
-    try {
-      final base = await _baseDir();
-      final workDir = Directory(p.join(base.path, 'downloads', workId));
-      if (!await workDir.exists()) return out;
-      await for (final keyDir in workDir.list(followLinks: false)) {
-        if (keyDir is! Directory) continue;
-        final key = p.basename(keyDir.path);
-        await for (final f in keyDir.list(followLinks: false)) {
-          if (f is! File) continue;
-          if (f.path.endsWith('.dl_tmp') || f.path.endsWith('.dl_bak')) {
-            continue;
+    for (final root in await downloadsRootPaths()) {
+      final candidates = <Directory>[];
+      final seenDirs = <String>{};
+      void addDir(Directory d) {
+        if (seenDirs.add(p.canonicalize(d.path))) candidates.add(d);
+      }
+
+      try {
+        final legacy = Directory(p.join(root, workId));
+        if (await legacy.exists()) addDir(legacy);
+        final owned = await _findOwnedWorkDir(root, workId);
+        if (owned != null) addDir(owned);
+        final title = (await _snapshots?.load(workId))?.work.title;
+        if (title != null && title.trim().isNotEmpty) {
+          final named = Directory(p.join(
+            root,
+            workDirName(title: title, workId: workId),
+          ));
+          if (await named.exists()) addDir(named);
+        }
+      } catch (e) {
+        AppLogger.warning('磁盘扫描下载目录失败: $root/$workId ($e)');
+      }
+
+      for (final workDir in candidates) {
+        try {
+          // 拍平：fileKeys sidecar → 文件名。
+          final map = await AlbumMetadataWriter.readFileKeys(workDir);
+          for (final e in map.entries) {
+            if (out.containsKey(e.value)) continue;
+            final fp = p.join(workDir.path, e.key);
+            if (await _filePresent(fp)) out[e.value] = fp;
           }
-          out[key] = f.path;
-          break;
+          // legacy：各 <fileKey>/ 子目录。
+          await for (final keyDir in workDir.list(followLinks: false)) {
+            if (keyDir is! Directory) continue;
+            final key = p.basename(keyDir.path);
+            if (out.containsKey(key)) continue;
+            await for (final f in keyDir.list(followLinks: false)) {
+              if (f is! File) continue;
+              if (f.path.endsWith('.dl_tmp') || f.path.endsWith('.dl_bak')) {
+                continue;
+              }
+              out[key] = f.path;
+              break;
+            }
+          }
+        } catch (e) {
+          AppLogger.warning('磁盘扫描下载目录失败: ${workDir.path} ($e)');
         }
       }
-    } catch (e) {
-      AppLogger.warning('磁盘扫描下载目录失败: $workId ($e)');
     }
     return out;
   }
@@ -447,11 +948,17 @@ class DownloadService {
 
   /// 下载一个文件（音频/视频/字幕）到本地下载目录（Android 为外部应用专属
   /// 目录，详见类文档）。幂等：已完整下载则直接返回。
+  ///
+  /// [work]/[files] 可选：直传时用于成功后写 `album.json` 专辑信息；
+  /// 缺省时从 `_snapshots`（`work_snapshots` 表）回填，仍取不到则跳过写入
+  /// （best-effort，绝不影响下载结果）。
   Future<DownloadResult> download({
     required String workId,
     required Child file,
     void Function(double progress)? onProgress,
     CancelToken? cancelToken,
+    Work? work,
+    Files? files,
   }) async {
     final url = file.mediaDownloadUrl;
     final fileName = file.title;
@@ -477,10 +984,13 @@ class DownloadService {
       // 比单查 findCompleted(workId, key) 更能匹配历史预签名 URL 落盘。
       final existingPath = await localPathIfDownloaded(workId, file);
       if (existingPath != null) {
+        await _writeAlbum(workId, work: work, files: files);
+        await _recordFileKey(workId, existingPath, key, work: work);
         return DownloadResult(DownloadStatus.alreadyExists, existingPath);
       }
 
-      destPath = await _destPath(workId, file);
+      final workDir = await _workDir(workId, work: work);
+      destPath = await _destPath(workDir, file);
       final tmpPath = '$destPath.dl_tmp';
       final bakPath = '$destPath.dl_bak';
       tmpFile = File(tmpPath);
@@ -534,6 +1044,10 @@ class DownloadService {
         exceptFileKey: key,
       ));
 
+      // 7. 专辑信息 sidecar（best-effort：失败仅 log，不影响 success）。
+      await _writeAlbum(workId, work: work, files: files);
+      await _recordFileKey(workId, destPath, key, work: work);
+
       AppLogger.debug('下载完成: $workId/$fileName -> $destPath');
       return DownloadResult(DownloadStatus.success, destPath);
     } catch (e) {
@@ -573,6 +1087,48 @@ class DownloadService {
       if (await _filePresent(e.filePath)) live.add(e);
     }
     return live;
+  }
+
+  /// 下载成功/已存在时写 `<workDir>/album.json`（best-effort）。
+  /// [work] 缺省时从 `work_snapshots` 回填；仍无则跳过（不写空文件）。
+  Future<void> _writeAlbum(
+    String workId, {
+    Work? work,
+    Files? files,
+  }) async {
+    try {
+      var w = work;
+      var f = files;
+      if (w == null) {
+        final snap = await _snapshots?.load(workId);
+        w = snap?.work;
+        f ??= snap?.files;
+      }
+      if (w == null) return;
+      final dir = await _workDir(workId, work: w);
+      await AlbumMetadataWriter.write(dir, work: w, files: f);
+    } catch (e) {
+      AppLogger.warning('写入专辑信息失败（不影响下载结果）: $e');
+    }
+  }
+
+  /// best-effort 写 `fileKeys[落盘文件名] = fileKey`（拍平布局身份回填）。
+  Future<void> _recordFileKey(
+    String workId,
+    String path,
+    String key, {
+    Work? work,
+  }) async {
+    try {
+      final dir = await _workDir(workId, work: work);
+      await AlbumMetadataWriter.recordFileKey(
+        dir,
+        fileName: p.basename(path),
+        fileKey: key,
+      );
+    } catch (e) {
+      AppLogger.warning('写入 fileKeys 失败（不影响下载结果）: $e');
+    }
   }
 
   /// 按已完成条目删除（本地缓存页）。与 [removeDownload] 同一不变量：
@@ -616,7 +1172,12 @@ class DownloadService {
     var dbRemoved = false;
     final keysToRemove = <String>{...keys};
     if (path != null) {
-      keysToRemove.add(p.basename(p.dirname(path)));
+      // legacy 布局下 dirname 是 md5 fileKey；拍平布局下是**标题目录名**，
+      // 绝不能当 fileKey 去删行（会误删同名 key 或空转）。
+      final parentName = p.basename(p.dirname(path));
+      if (looksLikeFileKey(parentName)) {
+        keysToRemove.add(parentName);
+      }
     }
     for (final key in keysToRemove) {
       try {

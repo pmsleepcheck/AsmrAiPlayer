@@ -18,6 +18,12 @@ class WorkFileItem extends StatelessWidget {
   /// null 时不显示播放按钮（仍显示已下载角标）。
   final Function(Child file)? onFilePlay;
 
+  /// 「翻译+播放」回调（仅音频）；null 不显示图标。
+  final Function(Child file)? onFileTranslatePlay;
+
+  /// 长按音频 → 从专辑内手工选择字幕；null 不响应长按。
+  final Function(Child file)? onFilePickSubtitle;
+
   const WorkFileItem({
     super.key,
     required this.file,
@@ -26,6 +32,8 @@ class WorkFileItem extends StatelessWidget {
     this.onFileDownload,
     this.downloadedFileKeys,
     this.onFilePlay,
+    this.onFileTranslatePlay,
+    this.onFilePickSubtitle,
   });
 
   static const _videoExtensions = {'mp4', 'mkv', 'mov', 'avi', 'webm', 'm4v'};
@@ -65,6 +73,60 @@ class WorkFileItem extends StatelessWidget {
       if (keys.contains(key)) return true;
     }
     return false;
+  }
+
+  Widget? _buildTrailing(
+    bool isAudio,
+    bool isVideo,
+    bool downloaded,
+    ColorScheme colorScheme,
+  ) {
+    final children = <Widget>[];
+
+    if (isAudio && onFileTranslatePlay != null) {
+      children.add(IconButton(
+        icon: const Icon(Icons.record_voice_over_outlined, size: 20),
+        tooltip: Strings.translatePlayTooltip,
+        onPressed: () async {
+          try {
+            await onFileTranslatePlay!.call(file);
+          } catch (e) {
+            AppLogger.error('翻译播放按钮回调失败: ${file.title}', e);
+          }
+        },
+      ));
+    }
+
+    if (downloaded) {
+      if (onFilePlay != null && (isAudio || isVideo)) {
+        children.add(IconButton(
+          icon: const Icon(Icons.play_arrow, size: 22),
+          tooltip: Strings.downloadJobPlay,
+          onPressed: () async {
+            try {
+              await onFilePlay!.call(file);
+            } catch (e) {
+              AppLogger.error('播放按钮回调失败: ${file.title}', e);
+            }
+          },
+        ));
+      }
+      children.add(const Tooltip(
+        message: Strings.downloadedBadgeTooltip,
+        child: Icon(Icons.download_done, size: 20, color: Colors.green),
+      ));
+    } else if (isAudio && onFileDownload != null) {
+      children.add(IconButton(
+        icon: const Icon(Icons.download_outlined, size: 20),
+        tooltip: Strings.downloadToLocalTooltip,
+        onPressed: () => onFileDownload!.call(file),
+      ));
+    } else if (isVideo) {
+      children.add(const Icon(Icons.download_outlined, size: 20));
+    }
+
+    if (children.isEmpty) return null;
+    return Row(mainAxisSize: MainAxisSize.min, children: children);
   }
 
   @override
@@ -110,38 +172,17 @@ class WorkFileItem extends StatelessWidget {
                       ? Colors.orange
                       : Colors.blue,
         ),
-        trailing: downloaded
-            ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (onFilePlay != null && (isAudio || isVideo))
-                    IconButton(
-                      icon: const Icon(Icons.play_arrow, size: 22),
-                      tooltip: Strings.downloadJobPlay,
-                      onPressed: () async {
-                        try {
-                          await onFilePlay!.call(file);
-                        } catch (e) {
-                          AppLogger.error('播放按钮回调失败: ${file.title}', e);
-                        }
-                      },
-                    ),
-                  const Tooltip(
-                    message: Strings.downloadedBadgeTooltip,
-                    child: Icon(Icons.download_done, size: 20, color: Colors.green),
-                  ),
-                ],
-              )
-            : isAudio && onFileDownload != null
-                ? IconButton(
-                    icon: const Icon(Icons.download_outlined, size: 20),
-                    tooltip: Strings.downloadToLocalTooltip,
-                    onPressed: () => onFileDownload!.call(file),
-                  )
-                : isVideo
-                    ? const Icon(Icons.download_outlined, size: 20)
-                    : null,
+        trailing: _buildTrailing(isAudio, isVideo, downloaded, colorScheme),
         dense: true,
+        onLongPress: (isAudio && onFilePickSubtitle != null)
+            ? () async {
+                try {
+                  await onFilePickSubtitle!.call(file);
+                } catch (e) {
+                  AppLogger.error('选择字幕回调失败: ${file.title}', e);
+                }
+              }
+            : null,
         onTap: tappable
             ? () async {
                 AppLogger.debug('点击文件: ${file.title} (${file.type})');

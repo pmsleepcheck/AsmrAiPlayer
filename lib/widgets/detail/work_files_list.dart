@@ -20,6 +20,12 @@ class WorkFilesList extends StatelessWidget {
   /// 已下载文件播放（角标旁播放按钮）；null = 不显示按钮。
   final Function(Child file)? onFilePlay;
 
+  /// 翻译+播放（音频行播放左侧）；null = 不显示图标。
+  final Function(Child file)? onFileTranslatePlay;
+
+  /// 长按音频 → 专辑内手工选择字幕；null 不显示。
+  final Function(Child file)? onFilePickSubtitle;
+
   const WorkFilesList({
     super.key,
     required this.files,
@@ -28,6 +34,8 @@ class WorkFilesList extends StatelessWidget {
     this.onFolderDownload,
     this.downloadedFileKeys,
     this.onFilePlay,
+    this.onFileTranslatePlay,
+    this.onFilePickSubtitle,
   });
 
   @override
@@ -73,6 +81,8 @@ class WorkFilesList extends StatelessWidget {
                           onFolderDownload: onFolderDownload,
                           downloadedFileKeys: downloadedFileKeys,
                           onFilePlay: onFilePlay,
+                          onFileTranslatePlay: onFileTranslatePlay,
+                          onFilePickSubtitle: onFilePickSubtitle,
                         )
                       : WorkFileItem(
                           file: child,
@@ -81,6 +91,8 @@ class WorkFilesList extends StatelessWidget {
                           onFileDownload: onFileDownload,
                           downloadedFileKeys: downloadedFileKeys,
                           onFilePlay: onFilePlay,
+                          onFileTranslatePlay: onFileTranslatePlay,
+                          onFilePickSubtitle: onFilePickSubtitle,
                         ))
                   .toList() ??
               [],

@@ -11,6 +11,9 @@ import 'package:aaplay/core/settings/app_settings_service.dart';
 import 'package:aaplay/screens/settings/cache_manager_screen.dart';
 import 'package:aaplay/screens/settings/audio_format_order_dialog.dart';
 import 'package:aaplay/screens/settings/proxy_address_dialog.dart';
+import 'package:aaplay/screens/settings/download_dirs_dialog.dart';
+import 'package:aaplay/screens/settings/fish_tts_settings_dialog.dart';
+import 'package:aaplay/core/audio/translation/fish_tts_config.dart';
 import 'package:aaplay/core/theme/app_colors.dart';
 import 'package:aaplay/core/theme/app_spacing.dart';
 import 'package:aaplay/screens/settings/widgets/settings_group.dart';
@@ -46,6 +49,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _contentSection(context),
             const SizedBox(height: AppSpacing.space24),
             _playbackSection(),
+            const SizedBox(height: AppSpacing.space24),
+            _aiTranslationSection(context),
             const SizedBox(height: AppSpacing.space24),
             _lyricOverlaySection(),
             const SizedBox(height: AppSpacing.space24),
@@ -192,6 +197,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               value: settings.smartPathEnabled,
               onChanged: (v) => settings.setSmartPathEnabled(v),
             ),
+            SettingsTile.toggle(
+              title: Strings.noImageMode,
+              subtitle: Strings.noImageModeDesc,
+              leading: Icons.hide_image_outlined,
+              value: settings.noImageMode,
+              onChanged: (v) => settings.setNoImageMode(v),
+            ),
             SettingsTile.navigation(
               title: Strings.audioFormatPreference,
               leading: Icons.audio_file_outlined,
@@ -220,9 +232,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             SettingsTile.navigation(
               title: Strings.sleepTimer,
               leading: Icons.bedtime_outlined,
-              value: sleepTimer.minutes == null
+              value: !sleepTimer.isActive || sleepTimer.minutes == null
                   ? Strings.sleepTimerOff
-                  : Strings.sleepTimerMinutes(sleepTimer.minutes!),
+                  : Strings.sleepTimerRemaining(sleepTimer.remaining),
               onTap: () => showDialog(
                 context: context,
                 builder: (_) => SleepTimerDialog(controller: sleepTimer),
@@ -248,10 +260,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
+  Widget _aiTranslationSection(BuildContext context) {
+    return Builder(builder: (context) {
+      final config = GetIt.I<FishTtsConfigStore>();
+      return FutureBuilder<String?>(
+        future: config.loadApiKey(),
+        builder: (context, snap) {
+          final hasKey = (snap.data ?? '').isNotEmpty;
+          return SettingsGroup(
+            header: Strings.aiTranslationSection,
+            footer: Strings.aiTranslationSectionDesc,
+            children: [
+              SettingsTile.navigation(
+                title: Strings.fishApiKey,
+                leading: Icons.key_outlined,
+                value: hasKey
+                    ? Strings.fishApiKeySet
+                    : Strings.fishApiKeyNotSet,
+                onTap: () async {
+                  await showDialog<bool>(
+                    context: context,
+                    builder: (_) =>
+                        FishTtsSettingsDialog(config: config),
+                  );
+                  if (context.mounted) setState(() {});
+                },
+              ),
+            ],
+          );
+        },
+      );
+    });
+  }
+
   Widget _lyricOverlaySection() {
     return Builder(builder: (context) {
       final settings = GetIt.I<AppSettingsService>();
       final manager = GetIt.I<LyricOverlayManager>();
+      if (!manager.isSupported) {
+        // Windows/iOS 无系统悬浮字幕能力 → 整段隐藏（bug.txt 1）。
+        return const SizedBox.shrink();
+      }
       return ListenableBuilder(
         listenable: settings,
         builder: (context, _) => SettingsGroup(
@@ -271,18 +320,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _storageSection(BuildContext context) {
-    return SettingsGroup(
-      header: Strings.storage,
-      children: [
-        SettingsTile.navigation(
-          title: Strings.cacheManager,
-          leading: Icons.storage_outlined,
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const CacheManagerScreen()),
-          ),
-        ),
-      ],
-    );
+    return Builder(builder: (context) {
+      final settings = GetIt.I<AppSettingsService>();
+      return ListenableBuilder(
+        listenable: settings,
+        builder: (context, _) {
+          final n = settings.downloadExtraDirs.length;
+          return SettingsGroup(
+            header: Strings.storage,
+            children: [
+              SettingsTile.navigation(
+                title: Strings.cacheManager,
+                leading: Icons.storage_outlined,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CacheManagerScreen()),
+                ),
+              ),
+              SettingsTile.navigation(
+                title: Strings.downloadDirsTitle,
+                subtitle: Strings.downloadDirsDesc,
+                leading: Icons.folder_copy_outlined,
+                value: n == 0 ? null : Strings.downloadDirsCount(n),
+                onTap: () => showDialog(
+                  context: context,
+                  builder: (_) => DownloadDirsDialog(settings: settings),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    });
   }
 }

@@ -103,6 +103,52 @@ void main() {
     });
   });
 
+  group('DownloadService.workDirName / sequenceDiskName / looksLikeFileKey',
+      () {
+    test('workDirName prefers sanitized title over workId', () {
+      expect(
+        DownloadService.workDirName(title: '夜の耳かき', workId: '42'),
+        '夜の耳かき',
+      );
+      expect(
+        DownloadService.workDirName(title: '  ', workId: '42'),
+        '42',
+      );
+      expect(DownloadService.workDirName(workId: '42'), '42');
+      expect(
+        DownloadService.workDirName(title: 'a/b:c', workId: '42'),
+        'a_b_c',
+      );
+    });
+
+    test('sequenceDiskName keeps extension and n=1 is identity', () {
+      expect(DownloadService.sequenceDiskName('track.mp3', 1), 'track.mp3');
+      expect(DownloadService.sequenceDiskName('track.mp3', 2), 'track (2).mp3');
+      expect(
+        DownloadService.sequenceDiskName('01.flac', 12),
+        '01 (12).flac',
+      );
+      expect(DownloadService.sequenceDiskName('noext', 2), 'noext (2)');
+    });
+
+    test('looksLikeFileKey only accepts 32 lowercase hex chars', () {
+      expect(
+        DownloadService.looksLikeFileKey('0123456789abcdef0123456789abcdef'),
+        isTrue,
+      );
+      expect(DownloadService.looksLikeFileKey('w1'), isFalse);
+      expect(DownloadService.looksLikeFileKey('夜の耳かき'), isFalse);
+      expect(
+        DownloadService.looksLikeFileKey('0123456789ABCDEF0123456789ABCDEF'),
+        isFalse,
+      );
+      expect(
+        DownloadService.looksLikeFileKey('0123456789abcdef0123456789abcde'),
+        isFalse,
+      );
+    });
+  });
+
   group('DownloadService.sanitizeFileName (pure, network-free)', () {
     test('keeps safe chars, extension and spaces', () {
       expect(

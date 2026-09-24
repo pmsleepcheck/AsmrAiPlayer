@@ -53,6 +53,7 @@ class Strings {
   static String localCacheDeleteConfirm(String name) => '确定删除「$name」？';
   static const String localCacheDeleted = '已删除';
   static const String localCacheDeleteFailed = '删除失败';
+  static String localCacheGroupCount(int n) => '$n 项';
 
   // Detail — offline snapshot fallback
   static const String detailOfflineBanner = '网络不可用，正在显示本地详情';
@@ -183,6 +184,13 @@ class Strings {
   static const String importIoError = '文件读取失败';
   static const String subtitleRemoved = '已移除导入字幕';
 
+  // Subtitle smart matching / manual pick
+  static const String pickSubtitleFromAlbum = '选择字幕';
+  static const String pickSubtitleTitle = '从专辑选择字幕';
+  static const String pickSubtitleEmpty = '专辑内没有可用的字幕文件';
+  static const String subtitleMatchedToast = '已匹配字幕：';
+  static const String subtitleMatchRecordFailed = '字幕已生效，但写入专辑记录失败';
+
   // Batch / folder download
   static const String downloadAllTooltip = '下载全部（含字幕）';
   static const String batchDownloadTitle = '批量下载';
@@ -212,10 +220,32 @@ class Strings {
   static const String downloadClearFinished = '清除已完成';
   static const String downloadViewQueue = '查看';
   static const String downloadRootLabel = '下载目录';
+  static String downloadActiveCount(int n) => '进行中 $n';
+  static const String downloadPanelCollapse = '折叠下载列表';
+  static const String downloadPanelExpand = '展开下载列表';
   static const String openFolder = '打开文件夹';
   static const String openFolderFailed = '无法打开文件夹';
   static const String downloadCompletedPlaying = '下载完成，开始播放';
   static String downloadSavedTo(String path) => '已保存到 $path';
+
+  // 本地缓存扫盘 + 多目录
+  static const String localCacheScanTooltip = '扫描本地文件';
+  static String localCacheScanResult(int n) => '扫描完成，新增 $n 项';
+  static const String localCacheScanFailed = '扫描失败';
+  static String localCacheRootsSuffix(int n) => '另有 $n 个目录';
+  static const String downloadDirsTitle = '附加缓存目录';
+  static const String downloadDirsDesc =
+      '额外的本地文件扫描目录（Windows / Android 通用）';
+  static const String downloadDirsDefault = '默认目录';
+  static const String downloadDirsEmpty = '未配置附加目录';
+  static const String downloadDirsAdd = '添加目录';
+  static const String downloadDirsHint = '输入目录绝对路径';
+  static const String downloadDirsInvalid = '请输入有效的绝对路径';
+  static const String downloadDirsDuplicate = '该目录已存在';
+  static const String downloadDirsRemove = '移除目录';
+  static const String downloadDirsBrowse = '浏览';
+  static const String downloadDirsBrowseFailed = '无法打开目录选择，请手动输入路径';
+  static String downloadDirsCount(int n) => '$n 个附加目录';
 
   // Subtitle preview
   static const String subtitlePreviewTitle = '字幕预览';
@@ -227,7 +257,7 @@ class Strings {
   // Drawer
   static const String home = '主页';
 
-  // 首页四宫格入口（推荐/搜索/本地/定时关闭）
+  // 首页入口（推荐/搜索/本地/定时关闭/热门）
   static const String homeGridRecommend = '推荐';
   static const String homeGridRecommendDesc = '为你推荐的声音';
   static const String homeGridSearch = '搜索';
@@ -236,6 +266,8 @@ class Strings {
   static const String homeGridLocalDesc = '已下载的缓存';
   static const String homeGridSleepTimer = '定时关闭';
   static const String homeGridSleepTimerDesc = '到点自动暂停';
+  static const String homeGridPopular = '热门';
+  static const String homeGridPopularDesc = '热门榜单作品';
   static const String favorites = '我的收藏';
   static const String settings = '设置';
   static const String drawerSectionContent = '内容';
@@ -270,6 +302,8 @@ class Strings {
   static const String followSystem = '跟随系统';
   static const String lightMode = '浅色模式';
   static const String darkMode = '深色模式';
+  static const String noImageMode = '无图片模式';
+  static const String noImageModeDesc = '开启后不加载封面图（列表 / 播放器 / 详情）';
   static const String smartPath = '智能路径';
   static const String smartPathDesc = '打开作品后，自动展开包含音频的文件夹';
   static const String audioFormatPreference = '音频格式偏好';
@@ -278,6 +312,16 @@ class Strings {
   static const String sleepTimer = '睡眠定时';
   static const String sleepTimerOff = '关闭';
   static String sleepTimerMinutes(int m) => '$m 分钟';
+  static String sleepTimerRemaining(Duration remaining) {
+    final total = remaining.isNegative ? 0 : remaining.inSeconds;
+    final h = total ~/ 3600;
+    final m = (total % 3600) ~/ 60;
+    final s = total % 60;
+    final mm = m.toString().padLeft(2, '0');
+    final ss = s.toString().padLeft(2, '0');
+    if (h > 0) return '$h:$mm:$ss';
+    return '$mm:$ss';
+  }
   static const String backgroundPlay = '后台播放';
   static const String backgroundPlayDesc = '关闭后切到后台自动暂停播放';
   static const String cacheManager = '缓存管理';
@@ -380,7 +424,10 @@ class Strings {
   static const String playerLocal = '本地';
   static const String playerSleepTimerChange = '更改';
   static const String playerSleepTimerInactive = '定时 · 未开启';
-  static String playerSleepTimerActive(int minutes) => '定时 · $minutes 分钟后停止';
+  static String playerSleepTimerActive(Duration remaining) =>
+      '定时 · 剩余 ${sleepTimerRemaining(remaining)}';
+  static String playerSleepTimerActiveMinutes(int minutes) =>
+      '定时 · $minutes 分钟后停止';
 
   // Home — Modernist 发现首页：时段问候（纯客户端计算，无数据源）与分区文案
   static const String continuePlaying = '继续播放';
@@ -397,4 +444,83 @@ class Strings {
   static const String greetingPromptEvening = '今晚想听点什么？';
   static const String greetingPromptLateNight = '想睡前听点什么？';
   static String salesCountLabel(int n) => '销量 $n';
+
+  // 翻译+播放（双耳 fish TTS 混播）
+  static const String translatePlayTooltip = '翻译+播放';
+  static const String earPromptTitle = '选择主耳侧';
+  static const String earPromptBody =
+      '无法自动判断哪一侧是主耳。请选择内容更强的一侧作为主音轨，另一侧叠加翻译朗读。';
+  static const String earPromptLeft = '左耳为主';
+  static const String earPromptRight = '右耳为主';
+  static const String earDetectCancelled = '已取消翻译播放';
+  static const String translationRequiresApiKey =
+      '请先在设置 → AI 翻译中配置 Fish Audio API Key';
+  static const String translationNoSubtitle = '当前没有可用字幕，无法朗读翻译';
+  static const String translationToggleOn = '开启翻译朗读';
+  static const String translationToggleOff = '关闭翻译朗读';
+  static const String translationSwapDirection = '切换主次方向';
+  static const String translationMainEarLeft = '主耳 · 左';
+  static const String translationMainEarRight = '主耳 · 右';
+  static String translationEarDesc({required bool mainIsRight}) => mainIsRight
+      ? '主耳：右　同声传译：左'
+      : '主耳：左　同声传译：右';
+  static const String subtitleToggleOn = '开启字幕';
+  static const String subtitleToggleOff = '关闭字幕';
+  static const String subtitleModeLabel = '字幕模式';
+  static const String subtitleModeOff = '关闭';
+  static const String subtitleModeInApp = '应用内';
+  static const String subtitleModePopup = '弹窗';
+  static const String subtitleModePopupFallback =
+      '当前平台无系统悬浮字幕，已使用应用内字幕条';
+  static const String translationPlayStarting = '正在启动翻译播放…';
+  static const String translationTtsFailed = '翻译语音生成失败';
+  static const String translationUnauthorized = 'Fish API Key 无效或已过期';
+
+  // Settings — AI 翻译（fish TTS 配置）
+  static const String aiTranslationSection = 'AI 翻译';
+  static const String aiTranslationSectionDesc =
+      '双耳翻译朗读：按当前字幕行调用 Fish Audio TTS，与主音轨混播';
+  static const String fishApiKey = 'Fish Audio API Key';
+  static const String fishApiKeyHint =
+      '在 fish.audio 控制台创建，仅保存在本机安全存储';
+  static const String fishApiKeySet = '已配置';
+  static const String fishApiKeyNotSet = '未配置';
+  static const String fishReferenceId = '音色 Reference ID';
+  static const String fishReferenceIdHint = '可选；留空使用默认音色';
+  static const String fishModel = 'TTS 模型';
+  static const String voicePresetSection = '音色预设';
+  static const String voicePresetSectionDesc =
+      '多个命名音色一键切换；结构预留未来按角色分配（本次不做）';
+  static const String voicePresetAdd = '添加音色';
+  static const String voicePresetEdit = '编辑音色';
+  static const String voicePresetName = '名称';
+  static const String voicePresetNameHint = '如：少女音、御姐音';
+  static const String voicePresetReference = 'Reference ID';
+  static const String voicePresetDefault = '默认音色';
+  static const String voicePresetEmpty = '暂无预设，使用默认音色';
+  static const String voicePresetSwitch = '切换音色';
+  static const String voicePresetNameRequired = '请输入名称';
+  static const String voicePresetNameDuplicate = '该名称已存在';
+  static const String voicePresetDeleteConfirm = '删除音色预设「%s」？';
+  static const String voicePresetSetActive = '设为当前';
+  static const String voicePresetActive = '使用中';
+  static const String voicePresetDelete = '删除';
+  static const String voicePresetNoPresets = '无可用音色预设';
+  static const String translationSecondaryVolumeLabel = '翻译轨音量';
+  static const String translationDelayLabel = '同声传译延迟';
+  static const String translationDelayHint =
+      '字幕行出现后延迟多久再朗读，便于跟上原音';
+  static String translationDelayOption(int ms) {
+    if (ms <= 0) return '不延迟';
+    if (ms >= 1000) {
+      final sec = ms / 1000;
+      final text = sec == sec.roundToDouble()
+          ? sec.round().toString()
+          : sec.toStringAsFixed(1);
+      return '$text 秒';
+    }
+    return '$ms 毫秒';
+  }
+
+  static String percentLabel(int p) => '$p%';
 }

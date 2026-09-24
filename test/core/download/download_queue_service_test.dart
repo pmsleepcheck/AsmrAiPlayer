@@ -23,6 +23,8 @@ class _FakeDownloader {
     required Child file,
     void Function(double progress)? onProgress,
     CancelToken? cancelToken,
+    Work? work,
+    Files? files,
   }) async {
     order.add(file.title ?? '');
     onProgress?.call(0.5);
@@ -196,6 +198,8 @@ void main() {
       required Child file,
       void Function(double progress)? onProgress,
       CancelToken? cancelToken,
+      Work? work,
+      Files? files,
     }) async =>
         DownloadResult(DownloadStatus.alreadyExists, '/tmp/${file.title}');
     var played = false;
@@ -254,7 +258,8 @@ void main() {
     // 入队不带 work/files（模拟会话快照丢失 / 仅持久化详情快照）。
     queue.enqueue(workId: '1', file: _file('a.mp3'), playOnComplete: false);
     await _waitIdle(queue);
-    expect(queue.jobs.single.canPlay, isFalse);
+    // 下载前会 hydrate（写 album.json 需要快照）→ drain 后已回填。
+    expect(queue.jobs.single.work, isNotNull);
 
     await queue.playNow(queue.jobs.single.id);
     expect(played, ['a.mp3']);

@@ -14,6 +14,19 @@ enum ColorVariant {
   still,
 }
 
+/// 播放页字幕显示三模式（bug.txt 2）。
+/// 持久化按 `name`；旧存档无键 → [SubtitleDisplayMode.inApp]。
+enum SubtitleDisplayMode {
+  /// 关闭：不显示自动字幕条 / 不开系统悬浮。
+  off,
+
+  /// 应用内：播放页底部当前行字幕条（点击仍可进全屏歌词）。
+  inApp,
+
+  /// 弹窗：Android 系统悬浮字幕；无系统悬浮能力的平台降级为应用内字幕条。
+  popup,
+}
+
 class AppSettingsService extends ChangeNotifier {
   static const String _serverUrlKey = 'server_url';
   static const String _smartPathKey = 'smart_path_enabled';
@@ -26,9 +39,17 @@ class AppSettingsService extends ChangeNotifier {
   static const String _subtitleFilterKey = 'subtitle_filter';
   static const String _proxyEnabledKey = 'proxy_enabled';
   static const String _proxyUrlKey = 'proxy_url';
+  static const String _noImageModeKey = 'no_image_mode';
+  static const String _subtitleDisplayModeKey = 'subtitle_display_mode';
+
+  /// 附加缓存/扫描目录（绝对路径列表，默认空 = 仅默认下载根）。
+  /// 只读扫描源：新下载仍写默认根；Win/Android 同一代码路径。
+  static const String _downloadExtraDirsKey = 'download_extra_dirs';
 
   static const String defaultServerUrl = 'https://api.asmr.one/api';
   static const ColorVariant defaultColorVariant = ColorVariant.blue;
+  static const SubtitleDisplayMode defaultSubtitleDisplayMode =
+      SubtitleDisplayMode.inApp;
   static const String defaultProxyUrl = '127.0.0.1:7890';
   static const List<String> defaultAudioFormatOrder = [
     'mp3',
@@ -58,6 +79,9 @@ class AppSettingsService extends ChangeNotifier {
   late bool _hasSubtitleFilter;
   late bool _proxyEnabled;
   late String _proxyUrl;
+  late bool _noImageMode;
+  late List<String> _downloadExtraDirs;
+  late SubtitleDisplayMode _subtitleDisplayMode;
 
   AppSettingsService(this._prefs) {
     _serverUrl = _prefs.getString(_serverUrlKey) ?? defaultServerUrl;
@@ -74,6 +98,14 @@ class AppSettingsService extends ChangeNotifier {
     _hasSubtitleFilter = _prefs.getBool(_subtitleFilterKey) ?? false;
     _proxyEnabled = _prefs.getBool(_proxyEnabledKey) ?? false;
     _proxyUrl = _prefs.getString(_proxyUrlKey) ?? defaultProxyUrl;
+    _noImageMode = _prefs.getBool(_noImageModeKey) ?? false;
+    _downloadExtraDirs =
+        _prefs.getStringList(_downloadExtraDirsKey) ?? const [];
+    final savedSubtitleMode = _prefs.getString(_subtitleDisplayModeKey);
+    _subtitleDisplayMode = SubtitleDisplayMode.values.firstWhere(
+      (m) => m.name == savedSubtitleMode,
+      orElse: () => defaultSubtitleDisplayMode,
+    );
   }
 
   // === Server URL ===
@@ -166,6 +198,27 @@ class AppSettingsService extends ChangeNotifier {
     await _prefs.setString(_proxyUrlKey, url);
   }
 
+  // === No image mode ===
+  /// `true` → 列表/详情/播放器封面不发起网络图片请求（显示占位）。
+  bool get noImageMode => _noImageMode;
+
+  Future<void> setNoImageMode(bool enabled) async {
+    if (_noImageMode == enabled) return;
+    _noImageMode = enabled;
+    notifyListeners();
+    await _prefs.setBool(_noImageModeKey, enabled);
+  }
+
+  // === Extra download/cache dirs ===
+  /// 附加扫描目录（绝对路径）。空列表 = 仅默认下载根（旧行为）。
+  List<String> get downloadExtraDirs => List.unmodifiable(_downloadExtraDirs);
+
+  Future<void> setDownloadExtraDirs(List<String> dirs) async {
+    _downloadExtraDirs = List.from(dirs);
+    notifyListeners();
+    await _prefs.setStringList(_downloadExtraDirsKey, _downloadExtraDirs);
+  }
+
   // === Color Variant ===
   ColorVariant get colorVariant => _colorVariant;
 
@@ -174,5 +227,15 @@ class AppSettingsService extends ChangeNotifier {
     _colorVariant = variant;
     notifyListeners();
     await _prefs.setString(_colorVariantKey, variant.name);
+  }
+
+  // === Subtitle display mode (off / inApp / popup) ===
+  SubtitleDisplayMode get subtitleDisplayMode => _subtitleDisplayMode;
+
+  Future<void> setSubtitleDisplayMode(SubtitleDisplayMode mode) async {
+    if (_subtitleDisplayMode == mode) return;
+    _subtitleDisplayMode = mode;
+    notifyListeners();
+    await _prefs.setString(_subtitleDisplayModeKey, mode.name);
   }
 }

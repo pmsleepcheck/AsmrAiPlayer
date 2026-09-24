@@ -1,6 +1,6 @@
-/// home_content.dart：底部导航「主页」tab——入口四宫格（推荐 / 搜索 /
-/// 本地 / 定时关闭）。进页不再自动加载推荐作品网格（数据入口收敛到推荐
-/// tab）；本页零网络请求、零分页状态。
+/// home_content.dart：底部导航「主页」tab——入口宫格（推荐 / 搜索 /
+/// 本地 / 定时关闭 / 热门）。进页不再自动加载推荐作品网格（数据入口收敛到
+/// 推荐 tab）；本页零网络请求、零分页状态。
 ///
 /// @author  Elvis Juan (thanhtran0606en@gmail.com)
 /// @created 2026-08-13
@@ -19,8 +19,8 @@ class HomeContent extends StatelessWidget {
   const HomeContent({super.key, required this.onNavigateToTab});
 
   /// 切换 MainScreen 底部 Tab（index 与 NavigationBar 一致：
-  /// 2 = 推荐，4 = 本地缓存）。Tab 的 PageController 归 MainScreen 私有，
-  /// 经此回调注入，避免首页反向持有父级状态。
+  /// 2 = 推荐，3 = 热门，4 = 本地缓存）。Tab 的 PageController 归 MainScreen
+  /// 私有，经此回调注入，避免首页反向持有父级状态。
   final void Function(int index) onNavigateToTab;
 
   @override
@@ -79,7 +79,7 @@ class HomeContent extends StatelessWidget {
                       title: Strings.homeGridSleepTimer,
                       subtitle: active
                           ? Strings.playerSleepTimerActive(
-                              sleepTimer.minutes!,
+                              sleepTimer.remaining,
                             )
                           : Strings.homeGridSleepTimerDesc,
                       highlighted: active,
@@ -91,6 +91,23 @@ class HomeContent extends StatelessWidget {
                       ),
                     );
                   },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.space12),
+          // 热门：原底部 Tab 的额外首页入口（Tab 本身保留）。
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: _HomeEntryTile(
+                    icon: Icons.trending_up_outlined,
+                    activeIcon: Icons.trending_up,
+                    title: Strings.homeGridPopular,
+                    subtitle: Strings.homeGridPopularDesc,
+                    onTap: () => onNavigateToTab(3),
+                  ),
                 ),
               ],
             ),

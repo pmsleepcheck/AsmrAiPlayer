@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:aaplay/core/image/cache/image_cache_manager.dart';
+import 'package:aaplay/core/settings/no_image_mode.dart';
 import 'package:aaplay/core/theme/app_radius.dart';
 import 'package:aaplay/widgets/common/skeleton_pulse.dart';
 
@@ -25,50 +26,57 @@ class SquareCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return AspectRatio(
-      aspectRatio: 1,
-      child: Container(
-        constraints: BoxConstraints(maxWidth: maxSize, maxHeight: maxSize),
-        decoration: BoxDecoration(
-          borderRadius: AppRadius.mdAll,
-          color: cs.surfaceContainerHighest,
-          border: Border.all(color: cs.outlineVariant, width: 1),
-        ),
-        child: ClipRRect(
-          borderRadius: AppRadius.mdAll,
-          child: coverUrl != null
-              ? LayoutBuilder(
-                  builder: (context, constraints) {
-                    final dpr = MediaQuery.of(context).devicePixelRatio;
-                    final w = constraints.maxWidth;
-                    int? cacheWidth;
-                    if (w.isFinite && w > 0) {
-                      final p = (w * dpr).round();
-                      cacheWidth = p < 1 ? 1 : p;
-                    }
-                    return CachedNetworkImage(
-                      imageUrl: coverUrl!,
-                      fit: BoxFit.cover,
-                      memCacheWidth: cacheWidth,
-                      fadeInDuration: const Duration(milliseconds: 150),
-                      cacheManager: ImageCacheManager.instance,
-                      placeholder: (context, url) => SkeletonPulse(
-                        child: Container(color: cs.surfaceContainerHighest),
-                      ),
-                      errorWidget: (context, url, error) => Container(
-                        color: cs.errorContainer,
-                        child: Center(
-                          child: Icon(Icons.error_outline,
-                              size: 48, color: cs.error),
+    return withNoImageMode((context, noImage) {
+      final cs = Theme.of(context).colorScheme;
+      final showImage = coverUrl != null && !noImage;
+      return AspectRatio(
+        aspectRatio: 1,
+        child: Container(
+          constraints: BoxConstraints(maxWidth: maxSize, maxHeight: maxSize),
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.mdAll,
+            color: cs.surfaceContainerHighest,
+            border: Border.all(color: cs.outlineVariant, width: 1),
+          ),
+          child: ClipRRect(
+            borderRadius: AppRadius.mdAll,
+            child: showImage
+                ? LayoutBuilder(
+                    builder: (context, constraints) {
+                      final dpr = MediaQuery.of(context).devicePixelRatio;
+                      final w = constraints.maxWidth;
+                      int? cacheWidth;
+                      if (w.isFinite && w > 0) {
+                        final p = (w * dpr).round();
+                        cacheWidth = p < 1 ? 1 : p;
+                      }
+                      return CachedNetworkImage(
+                        imageUrl: coverUrl!,
+                        fit: BoxFit.cover,
+                        memCacheWidth: cacheWidth,
+                        fadeInDuration: const Duration(milliseconds: 150),
+                        cacheManager: ImageCacheManager.instance,
+                        placeholder: (context, url) => SkeletonPulse(
+                          child:
+                              Container(color: cs.surfaceContainerHighest),
                         ),
-                      ),
-                    );
-                  },
-                )
-              : Icon(Icons.music_note, size: 96, color: cs.primary),
+                        errorWidget: (context, url, error) => Container(
+                          color: cs.errorContainer,
+                          child: Center(
+                            child: Icon(Icons.error_outline,
+                                size: 48, color: cs.error),
+                          ),
+                        ),
+                      );
+                    },
+                  )
+                : noImage
+                    ? Icon(Icons.image_outlined,
+                        size: 96, color: cs.onSurfaceVariant)
+                    : Icon(Icons.music_note, size: 96, color: cs.primary),
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 }

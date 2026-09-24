@@ -27,6 +27,10 @@ import 'package:aaplay/common/constants/strings.dart';
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
+  /// 跨路由切底部 Tab：详情页 SnackBar / 收藏页抽屉（非 MainScreen 栈内）
+  /// 设值后，MainScreen 监听并切换；消费后清回 null。
+  static final ValueNotifier<int?> pendingTab = ValueNotifier(null);
+
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
@@ -70,6 +74,21 @@ class _MainScreenState extends State<MainScreen> {
       Provider.of<AuthViewModel>(context, listen: false),
     );
     _localCacheViewModel = LocalCacheViewModel();
+    MainScreen.pendingTab.addListener(_onPendingTab);
+    final pending = MainScreen.pendingTab.value;
+    if (pending != null) {
+      MainScreen.pendingTab.value = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _onTabTapped(pending);
+      });
+    }
+  }
+
+  void _onPendingTab() {
+    final target = MainScreen.pendingTab.value;
+    if (target == null || !mounted) return;
+    MainScreen.pendingTab.value = null;
+    _onTabTapped(target);
   }
 
   void _onPageChanged(int index) {
@@ -88,6 +107,7 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   void dispose() {
+    MainScreen.pendingTab.removeListener(_onPendingTab);
     // 确保所有 ViewModel 都被正确释放
     _pageController.dispose();
     _homeViewModel.dispose();
@@ -167,7 +187,7 @@ class _MainScreenState extends State<MainScreen> {
                 ),
               ],
             ),
-            drawer: const SidebarMenu(),
+            drawer: SidebarMenu(onNavigateToTab: _onTabTapped),
             body: PageView(
               controller: _pageController,
               physics: const ClampingScrollPhysics(),

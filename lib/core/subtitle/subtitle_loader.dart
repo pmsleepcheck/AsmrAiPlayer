@@ -15,7 +15,7 @@ class SubtitleLoader {
 
   SubtitleLoader({required Dio dio}) : _dio = dio;
 
-  // 查找字幕文件
+  // 查找字幕文件：先同目录兄弟，未命中再全作品树兜底。
   Child? findSubtitleFile(Child audioFile, Files files) {
     if (files.children == null || audioFile.title == null) {
       AppLogger.debug(
@@ -25,21 +25,36 @@ class SubtitleLoader {
 
     AppLogger.debug('开始查找字幕文件...');
 
-    // 使用 FilePath 获取同级文件
     final siblings = FilePath.getSiblings(audioFile, files);
-
-    // 使用 SubtitleMatcher 查找匹配的字幕文件
-    final subtitleFile =
-        SubtitleMatcher.findMatchingSubtitle(audioFile.title!, siblings);
-
-    if (subtitleFile != null) {
-      AppLogger.debug(
-          '找到字幕文件: ${subtitleFile.title}, URL: ${subtitleFile.mediaDownloadUrl}');
-    } else {
-      AppLogger.debug('在当前目录中未找到字幕文件');
+    final local = SubtitleMatcher.findMatchingSubtitle(audioFile.title!, siblings);
+    if (local != null) {
+      AppLogger.debug('找到字幕文件(同目录): ${local.title}');
+      return local;
     }
 
-    return subtitleFile;
+    final all = collectSubtitleFiles(files.children);
+    final global = SubtitleMatcher.findMatchingSubtitle(audioFile.title!, all);
+    if (global != null) {
+      AppLogger.debug('找到字幕文件(全树兜底): ${global.title}');
+      return global;
+    }
+
+    AppLogger.debug('未找到字幕文件');
+    return null;
+  }
+
+  /// 递归收集作品树内全部 `.vtt`/`.lrc` 叶子（顺序 = 先序遍历）。
+  static List<Child> collectSubtitleFiles(List<Child>? children) {
+    final out = <Child>[];
+    if (children == null) return out;
+    for (final child in children) {
+      if (child.type == 'folder') {
+        out.addAll(collectSubtitleFiles(child.children));
+      } else if (SubtitleMatcher.isSubtitleFile(child.title)) {
+        out.add(child);
+      }
+    }
+    return out;
   }
 
   // 修改: 加载字幕内容
