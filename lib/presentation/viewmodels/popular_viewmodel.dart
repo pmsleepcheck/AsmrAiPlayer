@@ -1,7 +1,7 @@
-import 'package:xuro/presentation/viewmodels/base/paginated_works_viewmodel.dart';
-import 'package:xuro/data/services/api_service.dart';
+import 'package:aaplay/presentation/viewmodels/base/paginated_works_viewmodel.dart';
+import 'package:aaplay/data/services/api_service.dart';
 import 'package:get_it/get_it.dart';
-import 'package:xuro/core/settings/app_settings_service.dart';
+import 'package:aaplay/core/settings/app_settings_service.dart';
 
 class PopularViewModel extends PaginatedWorksViewModel {
   final AppSettingsService _settings = GetIt.I<AppSettingsService>();

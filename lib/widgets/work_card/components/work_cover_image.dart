@@ -5,12 +5,12 @@
 /// @created 2026-08-13
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:xuro/widgets/common/skeleton_pulse.dart';
-import 'package:xuro/core/image/cache/image_cache_manager.dart';
-import 'package:xuro/core/theme/app_colors.dart';
-import 'package:xuro/core/theme/app_spacing.dart';
-import 'package:xuro/core/theme/app_text_styles.dart';
-import 'package:xuro/common/constants/strings.dart';
+import 'package:aaplay/widgets/common/skeleton_pulse.dart';
+import 'package:aaplay/core/image/cache/image_cache_manager.dart';
+import 'package:aaplay/core/theme/app_colors.dart';
+import 'package:aaplay/core/theme/app_spacing.dart';
+import 'package:aaplay/core/theme/app_text_styles.dart';
+import 'package:aaplay/common/constants/strings.dart';
 
 class WorkCoverImage extends StatelessWidget {
   final String imageUrl;

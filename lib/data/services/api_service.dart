@@ -1,21 +1,22 @@
-import 'package:xuro/core/cache/recommendation_cache_manager.dart';
-import 'package:xuro/data/models/mark_status.dart';
-import 'package:xuro/data/models/playlists_with_exist_statu/playlists_with_exist_statu.dart';
+import 'package:aaplay/core/cache/recommendation_cache_manager.dart';
+import 'package:aaplay/data/models/mark_status.dart';
+import 'package:aaplay/data/models/playlists_with_exist_statu/playlists_with_exist_statu.dart';
 import 'package:dio/dio.dart';
-import 'package:xuro/data/models/files/files.dart';
-import 'package:xuro/data/models/works/work.dart';
-import 'package:xuro/data/models/works/pagination.dart';
-import 'package:xuro/utils/logger.dart';
-import 'package:xuro/data/services/interceptors/auth_interceptor.dart';
-import 'package:xuro/data/services/interceptors/retry_interceptor.dart';
-import 'package:xuro/data/services/exceptions/network_exception.dart';
-import 'package:xuro/data/models/playlists_with_exist_statu/playlist.dart';
-import 'package:xuro/data/models/my_lists/my_playlists/my_playlists.dart';
-import 'package:xuro/data/models/tags/tag_item.dart';
-import 'package:xuro/data/models/circles/circle_item.dart';
-import 'package:xuro/data/models/vas/voice_actor.dart';
-import 'package:xuro/data/models/works/work_info.dart';
-import 'package:xuro/core/settings/app_settings_service.dart';
+import 'package:aaplay/data/models/files/files.dart';
+import 'package:aaplay/data/models/works/work.dart';
+import 'package:aaplay/data/models/works/pagination.dart';
+import 'package:aaplay/utils/logger.dart';
+import 'package:aaplay/data/services/interceptors/auth_interceptor.dart';
+import 'package:aaplay/data/services/interceptors/retry_interceptor.dart';
+import 'package:aaplay/data/services/exceptions/network_exception.dart';
+import 'package:aaplay/data/models/playlists_with_exist_statu/playlist.dart';
+import 'package:aaplay/data/models/my_lists/my_playlists/my_playlists.dart';
+import 'package:aaplay/data/models/tags/tag_item.dart';
+import 'package:aaplay/data/models/circles/circle_item.dart';
+import 'package:aaplay/data/models/vas/voice_actor.dart';
+import 'package:aaplay/data/models/works/work_info.dart';
+import 'package:aaplay/core/settings/app_settings_service.dart';
+import 'package:aaplay/core/network/proxy_config.dart';
 
 class WorksResponse {
   final List<Work> works;
@@ -40,6 +41,7 @@ class ApiService {
         )) {
     _dio.interceptors.add(RetryInterceptor(dio: _dio));
     _dio.interceptors.add(AuthInterceptor());
+    ProxyConfig.apply(_dio, settings);
     // Listen for server URL changes
     _settings.addListener(_onSettingsChanged);
   }

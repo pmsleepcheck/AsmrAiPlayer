@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:xuro/core/theme/app_radius.dart';
-import 'package:xuro/core/theme/app_spacing.dart';
-import 'package:xuro/core/theme/app_text_styles.dart';
+import 'package:aaplay/core/theme/app_radius.dart';
+import 'package:aaplay/core/theme/app_spacing.dart';
+import 'package:aaplay/core/theme/app_text_styles.dart';
 
 /// 侧边栏菜单项：Modernist 干净行 + 中性线性图标；标题走 `titleMedium`
 /// （16/w800），与 `BrowseListItem` 已落地的行标题同规格，避免另起一套。

@@ -1,6 +1,6 @@
 {
-    "name": "Xuro",
-    "short_name": "Xuro",
+    "name": "AsmrAiPlayer",
+    "short_name": "AsmrAiPlayer",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

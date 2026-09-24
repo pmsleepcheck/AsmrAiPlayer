@@ -7,17 +7,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/core/audio/events/playback_event.dart';
-import 'package:xuro/core/audio/events/playback_event_hub.dart';
-import 'package:xuro/core/audio/i_audio_player_service.dart';
-import 'package:xuro/core/audio/models/audio_track_info.dart';
-import 'package:xuro/core/audio/models/subtitle.dart';
-import 'package:xuro/core/settings/app_settings_service.dart';
-import 'package:xuro/core/subtitle/i_subtitle_service.dart';
-import 'package:xuro/core/theme/app_colors.dart';
-import 'package:xuro/presentation/viewmodels/player_viewmodel.dart';
-import 'package:xuro/widgets/home/continue_playing_card.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/core/audio/events/playback_event.dart';
+import 'package:aaplay/core/audio/events/playback_event_hub.dart';
+import 'package:aaplay/core/audio/i_audio_player_service.dart';
+import 'package:aaplay/core/audio/models/audio_track_info.dart';
+import 'package:aaplay/core/audio/models/subtitle.dart';
+import 'package:aaplay/core/settings/app_settings_service.dart';
+import 'package:aaplay/core/subtitle/i_subtitle_service.dart';
+import 'package:aaplay/core/theme/app_colors.dart';
+import 'package:aaplay/presentation/viewmodels/player_viewmodel.dart';
+import 'package:aaplay/widgets/home/continue_playing_card.dart';
 
 /// 只暴露 PlayerViewModel 构造/本卡片实际会读到的 `currentTrack`，
 /// 其余方法调用即报错（同 player_viewmodel_position_test.dart 的先例）。

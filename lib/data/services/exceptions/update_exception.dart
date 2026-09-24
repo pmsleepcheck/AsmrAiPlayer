@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:xuro/common/constants/strings.dart';
+import 'package:aaplay/common/constants/strings.dart';
 
 /// 检查更新的错误分类。
 ///
@@ -47,6 +47,7 @@ class UpdateException implements Exception {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.receiveTimeout:
       case DioExceptionType.sendTimeout:
+      case DioExceptionType.transformTimeout:
       case DioExceptionType.connectionError:
       case DioExceptionType.badCertificate:
         return UpdateException(

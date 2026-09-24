@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xuro/widgets/player/waveform_progress.dart';
+import 'package:aaplay/widgets/player/waveform_progress.dart';
 
 /// Phase 3：波形条改 2px 直条 + 方块滑块。`WaveformProgress` 内部经
 /// `GetIt.I<PlayerViewModel>()` 取数据，走不了项目现有的无 DI harness 测试

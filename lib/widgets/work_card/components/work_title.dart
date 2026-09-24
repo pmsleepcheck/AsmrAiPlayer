@@ -3,8 +3,8 @@
 /// @author  Elvis Juan (thanhtran0606en@gmail.com)
 /// @created 2026-08-13
 import 'package:flutter/material.dart';
-import 'package:xuro/core/theme/app_text_styles.dart';
-import 'package:xuro/data/models/works/work.dart';
+import 'package:aaplay/core/theme/app_text_styles.dart';
+import 'package:aaplay/data/models/works/work.dart';
 
 class WorkTitle extends StatelessWidget {
   final Work work;

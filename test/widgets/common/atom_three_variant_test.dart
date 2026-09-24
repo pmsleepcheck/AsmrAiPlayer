@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xuro/core/settings/app_settings_service.dart';
-import 'package:xuro/core/theme/app_colors.dart';
-import 'package:xuro/widgets/common/brand_wordmark.dart';
+import 'package:aaplay/core/settings/app_settings_service.dart';
+import 'package:aaplay/core/theme/app_colors.dart';
+import 'package:aaplay/widgets/common/brand_wordmark.dart';
 
 /// 三配色不变量回归：同一原子在不同 [ColorVariant] 下，accent 元素颜色
 /// 必须严格等于该 scheme 的 primary/primaryContainer——证明组件从 Theme 取色、

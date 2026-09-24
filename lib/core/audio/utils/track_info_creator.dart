@@ -1,6 +1,6 @@
-import 'package:xuro/core/audio/models/audio_track_info.dart';
-import 'package:xuro/data/models/files/child.dart';
-import 'package:xuro/data/models/works/work.dart';
+import 'package:aaplay/core/audio/models/audio_track_info.dart';
+import 'package:aaplay/data/models/files/child.dart';
+import 'package:aaplay/data/models/works/work.dart';
 
 class TrackInfoCreator {
   static AudioTrackInfo createTrackInfo({

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/presentation/viewmodels/auth_viewmodel.dart';
-import 'package:xuro/presentation/widgets/auth/register_dialog.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:aaplay/presentation/widgets/auth/register_dialog.dart';
+import 'package:aaplay/utils/logger.dart';
 
 class LoginDialog extends StatefulWidget {
   const LoginDialog({super.key});

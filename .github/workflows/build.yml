@@ -196,7 +196,7 @@ jobs:
             ### 📝 Changelog
             ${{ steps.commits.outputs.commits }}
 
-            完整更新记录见 [CHANGELOG.md](https://github.com/WuMe-sicx/Xuro/blob/main/CHANGELOG.md)。
+            完整更新记录见 [CHANGELOG.md](https://github.com/pmsleepcheck/AsmrAiPlayer/blob/main/CHANGELOG.md)。
 
             ### 📦 Distribution
             | File | Description | Purpose |

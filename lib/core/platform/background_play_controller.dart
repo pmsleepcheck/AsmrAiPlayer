@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
-import 'package:xuro/core/audio/i_audio_player_service.dart';
-import 'package:xuro/core/settings/app_settings_service.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/core/audio/i_audio_player_service.dart';
+import 'package:aaplay/core/settings/app_settings_service.dart';
+import 'package:aaplay/utils/logger.dart';
 
 /// 后台播放开关的执行端：监听应用生命周期，当用户**关闭**后台播放
 /// 且应用切到后台时自动暂停播放。

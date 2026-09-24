@@ -1,5 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:xuro/data/models/works/i18n.dart';
+import 'package:aaplay/data/models/works/i18n.dart';
 
 part 'voice_actor.freezed.dart';
 part 'voice_actor.g.dart';

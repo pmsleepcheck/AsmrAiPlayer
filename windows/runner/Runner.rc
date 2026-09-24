@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.xuro" "\0"
-            VALUE "FileDescription", "xuro" "\0"
+            VALUE "CompanyName", "com.aaplay" "\0"
+            VALUE "FileDescription", "AsmrAiPlayer" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "xuro" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2024 com.xuro. All rights reserved." "\0"
-            VALUE "OriginalFilename", "xuro.exe" "\0"
-            VALUE "ProductName", "xuro" "\0"
+            VALUE "InternalName", "AsmrAiPlayer" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2024 com.aaplay. All rights reserved." "\0"
+            VALUE "OriginalFilename", "AsmrAiPlayer.exe" "\0"
+            VALUE "ProductName", "AsmrAiPlayer" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

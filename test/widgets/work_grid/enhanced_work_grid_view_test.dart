@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/data/models/works/work.dart';
-import 'package:xuro/widgets/work_grid/components/grid_content.dart';
-import 'package:xuro/widgets/work_grid/components/grid_empty.dart';
-import 'package:xuro/widgets/work_grid/components/grid_error.dart';
-import 'package:xuro/widgets/work_grid/components/grid_loading.dart';
-import 'package:xuro/widgets/work_grid/enhanced_work_grid_view.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/data/models/works/work.dart';
+import 'package:aaplay/widgets/work_grid/components/grid_content.dart';
+import 'package:aaplay/widgets/work_grid/components/grid_empty.dart';
+import 'package:aaplay/widgets/work_grid/components/grid_error.dart';
+import 'package:aaplay/widgets/work_grid/components/grid_loading.dart';
+import 'package:aaplay/widgets/work_grid/enhanced_work_grid_view.dart';
 
 /// EnhancedWorkGridView 是 legacy WorkGridView 的严格超集，迁移后成为
 /// search/favorites/similar_works 三屏的唯一 grid 实现，这里补上此前 0 覆盖的

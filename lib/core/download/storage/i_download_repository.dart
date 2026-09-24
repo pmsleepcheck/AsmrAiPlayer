@@ -1,4 +1,4 @@
-import 'package:xuro/core/download/models/download_entry.dart';
+import 'package:aaplay/core/download/models/download_entry.dart';
 
 abstract class IDownloadRepository {
   /// 按稳定身份键查找（[fileKey]，**非**展示名）。

@@ -6,10 +6,10 @@
 /// @created 2026-08-13
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/core/settings/app_settings_service.dart';
-import 'package:xuro/core/theme/app_colors.dart';
-import 'package:xuro/widgets/work_card/components/work_cover_image.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/core/settings/app_settings_service.dart';
+import 'package:aaplay/core/theme/app_colors.dart';
+import 'package:aaplay/widgets/work_card/components/work_cover_image.dart';
 
 Widget _host(ColorScheme scheme, Widget child) => MaterialApp(
       theme: ThemeData(colorScheme: scheme, useMaterial3: true),

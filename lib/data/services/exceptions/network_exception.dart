@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:xuro/common/constants/strings.dart';
+import 'package:aaplay/common/constants/strings.dart';
 
 enum NetworkErrorType {
   timeout,
@@ -29,6 +29,7 @@ class NetworkException implements Exception {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.receiveTimeout:
       case DioExceptionType.sendTimeout:
+      case DioExceptionType.transformTimeout:
         return NetworkException(
           type: NetworkErrorType.timeout,
           message: '请求超时: ${e.message}',

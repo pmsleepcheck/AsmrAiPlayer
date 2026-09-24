@@ -3,10 +3,10 @@
 /// @author  Elvis Juan (thanhtran0606en@gmail.com)
 /// @created 2026-08-13
 import 'package:flutter/material.dart';
-import 'package:xuro/core/theme/app_colors.dart';
-import 'package:xuro/core/theme/app_spacing.dart';
-import 'package:xuro/core/theme/app_text_styles.dart';
-import 'package:xuro/common/constants/strings.dart';
+import 'package:aaplay/core/theme/app_colors.dart';
+import 'package:aaplay/core/theme/app_spacing.dart';
+import 'package:aaplay/core/theme/app_text_styles.dart';
+import 'package:aaplay/common/constants/strings.dart';
 
 /// 分类屏（标签/社团/声优）共用的编号列表行——取代旧版网格卡片。
 /// Modernist 用编号 + 分隔线分层，零圆角、无卡片、无阴影。

@@ -1,11 +1,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xuro/core/settings/app_settings_service.dart';
-import 'package:xuro/core/theme/app_colors.dart';
-import 'package:xuro/core/theme/app_text_styles.dart';
-import 'package:xuro/screens/settings/widgets/settings_group.dart';
-import 'package:xuro/screens/settings/widgets/settings_tile.dart';
+import 'package:aaplay/core/settings/app_settings_service.dart';
+import 'package:aaplay/core/theme/app_colors.dart';
+import 'package:aaplay/core/theme/app_text_styles.dart';
+import 'package:aaplay/screens/settings/widgets/settings_group.dart';
+import 'package:aaplay/screens/settings/widgets/settings_tile.dart';
 
 /// D1 参考图不变量回归：设置项 leading 图标必须中性（onSurfaceVariant），
 /// accent 仅出现在分区头 / 选中态 / 开关。任一处把 leading 改回 accent 徽章、

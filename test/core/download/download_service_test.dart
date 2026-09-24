@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xuro/core/download/download_service.dart';
-import 'package:xuro/core/download/models/download_entry.dart';
-import 'package:xuro/data/models/files/child.dart';
+import 'package:aaplay/core/download/download_service.dart';
+import 'package:aaplay/core/download/models/download_entry.dart';
+import 'package:aaplay/data/models/files/child.dart';
 
 void main() {
   Child mk({String? title, String? hash, String? url}) =>
@@ -30,6 +30,49 @@ void main() {
       expect(
         DownloadService.fileKey(mk(title: '01.mp3', url: 'u')),
         DownloadService.fileKey(mk(title: 'zz.mp3', url: 'u')),
+      );
+    });
+
+    test('no hash: presigned query/fragment changes do NOT change fileKey',
+        () {
+      const base = 'https://cdn.example.com/work/a/01.mp3';
+      expect(
+        DownloadService.fileKey(mk(
+          title: '01.mp3',
+          url: '$base?X-Amz-Signature=aaa&X-Amz-Expires=3600',
+        )),
+        DownloadService.fileKey(mk(
+          title: '01.mp3',
+          url: '$base?X-Amz-Signature=bbb&X-Amz-Expires=60',
+        )),
+      );
+      expect(
+        DownloadService.fileKey(mk(title: '01.mp3', url: '$base#frag')),
+        DownloadService.fileKey(mk(title: '01.mp3', url: base)),
+      );
+    });
+
+    test('legacyFileKey keeps old raw-url identity for historical rows',
+        () {
+      const withQuery =
+          'https://cdn.example.com/a.mp3?X-Amz-Signature=aaa';
+      final current = DownloadService.fileKey(
+        mk(title: 'a.mp3', url: withQuery),
+      );
+      final legacy = DownloadService.legacyFileKey(
+        mk(title: 'a.mp3', url: withQuery),
+      );
+      expect(current, isNot(legacy));
+      expect(
+        DownloadService.candidateKeys(mk(title: 'a.mp3', url: withQuery)),
+        [current, legacy],
+      );
+      // hash 存在时二者相同 → candidateKeys 只含一个。
+      expect(
+        DownloadService.candidateKeys(
+          mk(title: 'a.mp3', hash: 'H', url: withQuery),
+        ),
+        hasLength(1),
       );
     });
 

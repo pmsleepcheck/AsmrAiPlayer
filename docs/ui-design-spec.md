@@ -1,4 +1,4 @@
-# Xuro UI 设计规范 v5.0（Modernist · 代码事实对齐）
+# AsmrAiPlayer UI 设计规范 v5.0（Modernist · 代码事实对齐）
 
 > **视觉基准**：Claude Design 项目《Flutter ASMR播放器设计》
 > （`f11e0a02-12c2-476f-8591-aaf9384c4922`，文件 `ASMR Player.dc.html`）

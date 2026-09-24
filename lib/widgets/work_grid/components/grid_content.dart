@@ -1,10 +1,10 @@
-import 'package:xuro/core/theme/app_animations.dart';
+import 'package:aaplay/core/theme/app_animations.dart';
 import 'package:flutter/material.dart';
-import 'package:xuro/data/models/works/work.dart';
-import 'package:xuro/presentation/layouts/work_layout_strategy.dart';
-import 'package:xuro/widgets/work_grid.dart';
-import 'package:xuro/widgets/pagination_controls.dart';
-import 'package:xuro/screens/detail_screen.dart';
+import 'package:aaplay/data/models/works/work.dart';
+import 'package:aaplay/presentation/layouts/work_layout_strategy.dart';
+import 'package:aaplay/widgets/work_grid.dart';
+import 'package:aaplay/widgets/pagination_controls.dart';
+import 'package:aaplay/screens/detail_screen.dart';
 
 class GridContent extends StatelessWidget {
   final List<Work> works;

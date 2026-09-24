@@ -1,11 +1,11 @@
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/core/theme/app_radius.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/core/theme/app_radius.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:xuro/presentation/viewmodels/search_viewmodel.dart';
-import 'package:xuro/widgets/work_grid/enhanced_work_grid_view.dart';
-import 'package:xuro/presentation/layouts/work_layout_strategy.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/presentation/viewmodels/search_viewmodel.dart';
+import 'package:aaplay/widgets/work_grid/enhanced_work_grid_view.dart';
+import 'package:aaplay/presentation/layouts/work_layout_strategy.dart';
+import 'package:aaplay/utils/logger.dart';
 
 class SearchScreen extends StatelessWidget {
   final String? initialKeyword;
@@ -108,37 +108,53 @@ class _SearchScreenContentState extends State<SearchScreenContent> {
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: Strings.searchInputHint,
-                      filled: true,
-                      fillColor: Theme.of(context)
-                          .colorScheme
-                          .surfaceContainerHighest
-                          .withValues(alpha: 0.5),
-                      border: const OutlineInputBorder(
-                        borderRadius: AppRadius.lgAll,
-                        borderSide: BorderSide.none,
+                  padding: const EdgeInsets.only(left: 4, right: 16),
+                  child: Row(
+                    children: [
+                      // 搜索页无 AppBar；Android 有系统返回，Windows 桌面
+                      // 没有 —— 这里是该页唯一出口（全平台可见）。
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back),
+                        tooltip: Strings.back,
+                        onPressed: () => Navigator.of(context).maybePop(),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, size: 20),
-                              onPressed: () {
-                                _searchController.clear();
-                                context.read<SearchViewModel>().clear();
-                              },
-                            )
-                          : null,
-                      prefixIcon: const Icon(Icons.search, size: 20),
-                      isDense: true,
-                    ),
-                    textInputAction: TextInputAction.search,
-                    onSubmitted: (_) => _onSearch(),
-                    onChanged: (value) => setState(() {}),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: Strings.searchInputHint,
+                            filled: true,
+                            fillColor: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest
+                                .withValues(alpha: 0.5),
+                            border: const OutlineInputBorder(
+                              borderRadius: AppRadius.lgAll,
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            suffixIcon: _searchController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 20),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      context
+                                          .read<SearchViewModel>()
+                                          .clear();
+                                    },
+                                  )
+                                : null,
+                            prefixIcon: const Icon(Icons.search, size: 20),
+                            isDense: true,
+                          ),
+                          textInputAction: TextInputAction.search,
+                          onSubmitted: (_) => _onSearch(),
+                          onChanged: (value) => setState(() {}),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 8),

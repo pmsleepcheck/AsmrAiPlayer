@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xuro/data/models/files/child.dart';
-import 'package:xuro/presentation/viewmodels/detail_viewmodel.dart';
+import 'package:aaplay/data/models/files/child.dart';
+import 'package:aaplay/presentation/viewmodels/detail_viewmodel.dart';
 
 void main() {
   Child audio(String title) => Child(type: 'audio', title: title);

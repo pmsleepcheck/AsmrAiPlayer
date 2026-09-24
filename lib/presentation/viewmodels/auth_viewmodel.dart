@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
-import 'package:xuro/data/models/auth/auth_resp/auth_resp.dart';
-import 'package:xuro/data/services/auth_service.dart';
-import 'package:xuro/data/repositories/auth_repository.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/data/models/auth/auth_resp/auth_resp.dart';
+import 'package:aaplay/data/services/auth_service.dart';
+import 'package:aaplay/data/repositories/auth_repository.dart';
+import 'package:aaplay/utils/logger.dart';
 
 class AuthViewModel extends ChangeNotifier {
   final AuthService _authService;

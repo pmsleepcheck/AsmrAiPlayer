@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xuro/core/theme/app_spacing.dart';
-import 'package:xuro/core/theme/app_radius.dart';
-import 'package:xuro/core/theme/app_text_styles.dart';
+import 'package:aaplay/core/theme/app_spacing.dart';
+import 'package:aaplay/core/theme/app_radius.dart';
+import 'package:aaplay/core/theme/app_text_styles.dart';
 
 /// 纯逻辑：锁定设计令牌与规范 §1.2–1.4 的契约值。
 /// 任何对令牌数值的改动都会撞红这里——防止 Phase C 起组件令牌化后规范悄悄漂移。

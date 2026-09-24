@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/core/audio/models/subtitle.dart';
-import 'package:xuro/core/download/download_service.dart';
-import 'package:xuro/core/subtitle/subtitle_loader.dart';
-import 'package:xuro/data/models/files/child.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/core/audio/models/subtitle.dart';
+import 'package:aaplay/core/download/download_service.dart';
+import 'package:aaplay/core/subtitle/subtitle_loader.dart';
+import 'package:aaplay/data/models/files/child.dart';
+import 'package:aaplay/utils/logger.dart';
 
 /// 只读字幕预览：已下载则读本地文件（离线可用），否则拉
 /// `mediaDownloadUrl`（带缓存）。能按时间轴解析就逐行列出，

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xuro/core/settings/app_settings_service.dart';
-import 'package:xuro/core/theme/app_colors.dart';
-import 'package:xuro/core/theme/app_radius.dart';
-import 'package:xuro/widgets/player/square_cover.dart';
+import 'package:aaplay/core/settings/app_settings_service.dart';
+import 'package:aaplay/core/theme/app_colors.dart';
+import 'package:aaplay/core/theme/app_radius.dart';
+import 'package:aaplay/widgets/player/square_cover.dart';
 
 /// Phase 3：播放器封面由圆形改回方形（Modernist 零圆角）。锁定——
 /// 零圆角矩形（非 BoxShape.circle/ClipOval）、无封面时的回退图标染 accent

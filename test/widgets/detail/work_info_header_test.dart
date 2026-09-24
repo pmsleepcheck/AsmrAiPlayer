@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/core/settings/app_settings_service.dart';
-import 'package:xuro/core/theme/app_colors.dart';
-import 'package:xuro/data/models/works/circle.dart';
-import 'package:xuro/data/models/works/work.dart';
-import 'package:xuro/data/models/works/work_info.dart' as model;
-import 'package:xuro/data/models/works/work_va.dart';
-import 'package:xuro/widgets/common/tag_chip.dart';
-import 'package:xuro/widgets/detail/work_info_header.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/core/settings/app_settings_service.dart';
+import 'package:aaplay/core/theme/app_colors.dart';
+import 'package:aaplay/data/models/works/circle.dart';
+import 'package:aaplay/data/models/works/work.dart';
+import 'package:aaplay/data/models/works/work_info.dart' as model;
+import 'package:aaplay/data/models/works/work_va.dart';
+import 'package:aaplay/widgets/common/tag_chip.dart';
+import 'package:aaplay/widgets/detail/work_info_header.dart';
 
 /// 挂载 [WorkInfoHeader]（而非孤立测 [TagChip]），断言三类标签的底色/边框色
 /// 严格等于对应 [ColorScheme] token。之所以挂真实屏而不是原子本身：此前的

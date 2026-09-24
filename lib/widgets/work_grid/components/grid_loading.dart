@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:xuro/core/theme/app_radius.dart';
-import 'package:xuro/core/theme/app_spacing.dart';
-import 'package:xuro/presentation/layouts/work_layout_strategy.dart';
-import 'package:xuro/widgets/common/skeleton_pulse.dart';
+import 'package:aaplay/core/theme/app_radius.dart';
+import 'package:aaplay/core/theme/app_spacing.dart';
+import 'package:aaplay/presentation/layouts/work_layout_strategy.dart';
+import 'package:aaplay/widgets/common/skeleton_pulse.dart';
 
 class GridLoading extends StatelessWidget {
   final WorkLayoutStrategy layoutStrategy;

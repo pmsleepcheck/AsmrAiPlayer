@@ -1,8 +1,8 @@
-import 'package:xuro/core/theme/app_animations.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/screens/player_screen.dart';
+import 'package:aaplay/core/theme/app_animations.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/screens/player_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:xuro/presentation/viewmodels/player_viewmodel.dart';
+import 'package:aaplay/presentation/viewmodels/player_viewmodel.dart';
 import 'mini_player_controls.dart';
 import 'mini_player_progress.dart';
 import 'package:get_it/get_it.dart';

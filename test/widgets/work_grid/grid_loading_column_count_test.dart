@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xuro/widgets/work_grid/components/grid_loading.dart';
+import 'package:aaplay/widgets/work_grid/components/grid_loading.dart';
 
 /// 骨架列数须跟随真实 [WorkLayoutStrategy]，不能写死 2 列——否则平板/桌面上会出现
 /// 「2 列骨架 → 3/4 列内容」的加载态跳变（回归闸门）。

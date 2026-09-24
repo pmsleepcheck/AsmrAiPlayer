@@ -1,10 +1,10 @@
 import 'dart:convert';
-import 'package:xuro/presentation/viewmodels/base/paginated_works_viewmodel.dart';
-import 'package:xuro/data/services/api_service.dart';
+import 'package:aaplay/presentation/viewmodels/base/paginated_works_viewmodel.dart';
+import 'package:aaplay/data/services/api_service.dart';
 import 'package:get_it/get_it.dart';
-import 'package:xuro/core/settings/app_settings_service.dart';
-import 'package:xuro/presentation/models/filter_state.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/core/settings/app_settings_service.dart';
+import 'package:aaplay/presentation/models/filter_state.dart';
+import 'package:aaplay/utils/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeViewModel extends PaginatedWorksViewModel {

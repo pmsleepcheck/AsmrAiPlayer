@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:xuro/data/models/auth/auth_resp/auth_resp.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/data/models/auth/auth_resp/auth_resp.dart';
+import 'package:aaplay/utils/logger.dart';
 
 /// 认证数据仓库。
 ///

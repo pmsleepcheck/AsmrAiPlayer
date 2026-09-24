@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/core/download/download_service.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/core/download/download_service.dart';
 
 /// 媒体"下载到本地磁盘"对话框：
 /// 阶段 1 = 确认（[promptText]，视频默认为固定文案

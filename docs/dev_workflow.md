@@ -1,6 +1,6 @@
-# Xuro 开发工作流准则（强制）
+# AsmrAiPlayer 开发工作流准则（强制）
 
-> 本文档是 Xuro 项目所有新功能、重构、Bug 修复任务的**强制工作流**。
+> 本文档是 AsmrAiPlayer 项目所有新功能、重构、Bug 修复任务的**强制工作流**。
 > 与 [`guidelines_zh.md`](guidelines_zh.md)（架构/代码规范）互补：本文档约束「做事的顺序」，guidelines 约束「做事的方式」。
 
 ---

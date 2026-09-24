@@ -1,14 +1,14 @@
 import 'dart:io';
 
-import 'package:xuro/data/models/files/child.dart';
-import 'package:xuro/data/models/files/files.dart';
-import 'package:xuro/core/audio/models/file_path.dart';
-import 'package:xuro/core/audio/models/subtitle.dart';
+import 'package:aaplay/data/models/files/child.dart';
+import 'package:aaplay/data/models/files/files.dart';
+import 'package:aaplay/core/audio/models/file_path.dart';
+import 'package:aaplay/core/audio/models/subtitle.dart';
 import 'package:dio/dio.dart';
-import 'package:xuro/utils/logger.dart';
-import 'package:xuro/core/subtitle/utils/subtitle_matcher.dart';
-import 'package:xuro/core/subtitle/parsers/subtitle_parser_factory.dart';
-import 'package:xuro/core/subtitle/cache/subtitle_cache_manager.dart';
+import 'package:aaplay/utils/logger.dart';
+import 'package:aaplay/core/subtitle/utils/subtitle_matcher.dart';
+import 'package:aaplay/core/subtitle/parsers/subtitle_parser_factory.dart';
+import 'package:aaplay/core/subtitle/cache/subtitle_cache_manager.dart';
 
 class SubtitleLoader {
   final Dio _dio;

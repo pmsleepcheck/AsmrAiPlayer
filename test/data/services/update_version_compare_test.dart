@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xuro/data/services/update_service.dart';
+import 'package:aaplay/data/services/update_service.dart';
 
 void main() {
   group('UpdateService.compareSemver', () {
@@ -34,7 +34,7 @@ void main() {
   group('UpdateService.selectLatestRelease 选最大', () {
     Map<String, dynamic> release(String tag) => {
           'tag_name': tag,
-          'html_url': 'https://github.com/WuMe-sicx/Xuro/releases/tag/$tag',
+          'html_url': 'https://github.com/pmsleepcheck/AsmrAiPlayer/releases/tag/$tag',
           'body': 'notes $tag',
           'assets': const [],
         };

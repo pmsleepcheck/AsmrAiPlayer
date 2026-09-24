@@ -1,4 +1,4 @@
-package com.xuro.lyric
+package com.aaplay.lyric
 
 import android.content.ComponentName
 import android.content.Context

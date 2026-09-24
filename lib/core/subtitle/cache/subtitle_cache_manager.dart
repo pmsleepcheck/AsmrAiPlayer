@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/core/network/proxied_http_file_service.dart';
+import 'package:aaplay/utils/logger.dart';
 
 class SubtitleCacheManager {
   static const String key = 'subtitleCache';
@@ -13,7 +14,7 @@ class SubtitleCacheManager {
       stalePeriod: const Duration(days: 365), // 字幕文件不会变更，设置较长的有效期
       maxNrOfCacheObjects: 1000, // 最大缓存文件数
       repo: JsonCacheInfoRepository(databaseName: key),
-      fileService: HttpFileService(),
+      fileService: ProxiedHttpFileService(),
     ),
   );
 

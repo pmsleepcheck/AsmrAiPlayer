@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xuro/data/models/works/work.dart';
-import 'package:xuro/presentation/layouts/work_layout_strategy.dart';
+import 'package:aaplay/data/models/works/work.dart';
+import 'package:aaplay/presentation/layouts/work_layout_strategy.dart';
 
 /// 规范 §7.3 memo：groupWorksIntoRows 同输入(works 引用+列数)命中缓存，
 /// 返回同一 List 实例（跳过重算）；输入变化则重算。

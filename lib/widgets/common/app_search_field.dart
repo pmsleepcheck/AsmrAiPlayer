@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:xuro/core/theme/app_colors.dart';
-import 'package:xuro/core/theme/app_radius.dart';
-import 'package:xuro/core/theme/app_spacing.dart';
+import 'package:aaplay/core/theme/app_colors.dart';
+import 'package:aaplay/core/theme/app_radius.dart';
+import 'package:aaplay/core/theme/app_spacing.dart';
 
 /// 圆角搜索框（首页 / 浏览页通用）。规范 §2.2。
 ///

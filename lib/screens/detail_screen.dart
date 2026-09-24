@@ -1,21 +1,23 @@
-import 'package:xuro/core/theme/app_animations.dart';
-import 'package:xuro/widgets/mini_player/mini_player.dart';
+import 'package:aaplay/core/theme/app_animations.dart';
+import 'package:aaplay/widgets/mini_player/mini_player.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:xuro/data/models/works/work.dart';
-import 'package:xuro/data/models/files/child.dart';
-import 'package:xuro/widgets/detail/work_cover.dart';
-import 'package:xuro/widgets/detail/work_info.dart';
-import 'package:xuro/widgets/detail/work_files_list.dart';
-import 'package:xuro/widgets/detail/work_files_skeleton.dart';
-import 'package:xuro/presentation/viewmodels/detail_viewmodel.dart';
-import 'package:xuro/widgets/detail/work_action_buttons.dart';
-import 'package:xuro/widgets/detail/media_download_dialog.dart';
-import 'package:xuro/widgets/detail/batch_download_dialog.dart';
-import 'package:xuro/core/download/download_service.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/screens/similar_works_screen.dart';
-import 'package:xuro/screens/subtitle_preview_screen.dart';
+import 'package:aaplay/data/models/works/work.dart';
+import 'package:aaplay/data/models/files/child.dart';
+import 'package:aaplay/widgets/detail/work_cover.dart';
+import 'package:aaplay/widgets/detail/work_info.dart';
+import 'package:aaplay/widgets/detail/work_files_list.dart';
+import 'package:aaplay/widgets/detail/work_files_skeleton.dart';
+import 'package:aaplay/presentation/viewmodels/detail_viewmodel.dart';
+import 'package:aaplay/widgets/detail/work_action_buttons.dart';
+import 'package:aaplay/widgets/detail/media_download_dialog.dart';
+import 'package:aaplay/widgets/detail/batch_download_dialog.dart';
+import 'package:aaplay/core/download/download_service.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/screens/similar_works_screen.dart';
+import 'package:aaplay/screens/subtitle_preview_screen.dart';
+import 'package:aaplay/screens/download_management_screen.dart';
+import 'package:aaplay/utils/logger.dart';
 import 'package:open_filex/open_filex.dart';
 
 class DetailScreen extends StatelessWidget {
@@ -27,6 +29,29 @@ class DetailScreen extends StatelessWidget {
     required this.work,
     this.fromPlayer = false,
   });
+
+  /// 入队 Snackbar：提示 +「查看」跳转下载管理。
+  static void _showQueuedSnackBar(BuildContext context, int count) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(SnackBar(
+      content: Text(
+        count <= 1
+            ? Strings.downloadQueued
+            : Strings.downloadQueuedCount(count),
+      ),
+      behavior: SnackBarBehavior.floating,
+      action: SnackBarAction(
+        label: Strings.downloadViewQueue,
+        onPressed: () {
+          Navigator.of(context, rootNavigator: true).push(
+            MaterialPageRoute(
+              builder: (_) => const DownloadManagementScreen(),
+            ),
+          );
+        },
+      ),
+    ));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,67 +121,94 @@ class DetailScreen extends StatelessWidget {
 
                   if (viewModel.error != null) {
                     return Center(
-                      child: Text(
-                        viewModel.error!,
-                        style: TextStyle(
-                            color: Theme.of(context).colorScheme.error),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              viewModel.error!,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error),
+                            ),
+                            const SizedBox(height: 12),
+                            TextButton(
+                              onPressed: () => viewModel.loadFiles(),
+                              child: const Text(Strings.retry),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   }
 
                   if (viewModel.files != null) {
-                    // 确认弹窗 → 下载（带进度/取消）→ 结果提示。
-                    // [openOnDone]=true（视频）完成后用外部查看器打开；
-                    // false（音频离线下载）仅提示完成。
+                    // 确认弹窗 → 后台队列（入队即返回）→ Snackbar 引导下载管理。
+                    // 视频 [openOnDone]=true 仍阻塞下载（完成立刻打开），
+                    // 不走队列；音频离线/批量入队后台执行。
                     Future<void> runDownload(
                       Child file, {
                       required bool openOnDone,
                       required String title,
                       required String prompt,
                     }) async {
-                      final result = await showDialog<DownloadResult>(
-                        context: context,
-                        barrierDismissible: false,
-                        builder: (_) => MediaDownloadDialog(
-                          fileName: file.title ?? '',
-                          titleText: title,
-                          promptText: prompt,
-                          download: (ct, onP) => viewModel.downloadFile(
-                            file,
-                            cancelToken: ct,
-                            onProgress: onP,
+                      if (openOnDone) {
+                        // 视频：保持阻塞弹窗，下载完成即用外部查看器打开。
+                        final result = await showDialog<DownloadResult>(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (_) => MediaDownloadDialog(
+                            fileName: file.title ?? '',
+                            titleText: title,
+                            promptText: prompt,
+                            download: (ct, onP) => viewModel.downloadFile(
+                              file,
+                              cancelToken: ct,
+                              onProgress: onP,
+                            ),
                           ),
-                        ),
-                      );
-                      // 拒绝（确认阶段取消）→ no-op
-                      if (result == null || !context.mounted) return;
-                      final messenger = ScaffoldMessenger.of(context);
-                      if (result.isPlayable && result.localPath != null) {
-                        if (openOnDone) {
-                          final open = await OpenFilex.open(result.localPath!);
+                        );
+                        if (result == null || !context.mounted) return;
+                        final messenger = ScaffoldMessenger.of(context);
+                        if (result.isPlayable && result.localPath != null) {
+                          final open =
+                              await OpenFilex.open(result.localPath!);
+                          AppLogger.info(
+                              'OpenFilex 视频: type=${open.type} path=${result.localPath}');
                           if (open.type != ResultType.done) {
-                            messenger.showSnackBar(const SnackBar(
-                              content: Text(Strings.downloadOpenFailed),
+                            final path = result.localPath!;
+                            final dir = path.replaceAll(RegExp(r'[^/\\]+$'), '');
+                            messenger.showSnackBar(SnackBar(
+                              content: const Text(Strings.downloadOpenFailed),
+                              behavior: SnackBarBehavior.floating,
+                              action: SnackBarAction(
+                                label: Strings.openFolder,
+                                onPressed: () => OpenFilex.open(dir),
+                              ),
                             ));
                           }
+                        } else if (result.status ==
+                            DownloadStatus.cancelled) {
+                          messenger.showSnackBar(const SnackBar(
+                            content: Text(Strings.downloadCancelled),
+                          ));
+                        } else if (result.status ==
+                            DownloadStatus.networkError) {
+                          messenger.showSnackBar(const SnackBar(
+                            content: Text(Strings.downloadNetworkError),
+                          ));
                         } else {
                           messenger.showSnackBar(const SnackBar(
-                            content: Text(Strings.downloadSuccess),
+                            content: Text(Strings.downloadIoError),
                           ));
                         }
-                      } else if (result.status == DownloadStatus.cancelled) {
-                        messenger.showSnackBar(const SnackBar(
-                          content: Text(Strings.downloadCancelled),
-                        ));
-                      } else if (result.status == DownloadStatus.networkError) {
-                        messenger.showSnackBar(const SnackBar(
-                          content: Text(Strings.downloadNetworkError),
-                        ));
-                      } else {
-                        messenger.showSnackBar(const SnackBar(
-                          content: Text(Strings.downloadIoError),
-                        ));
+                        return;
                       }
+                      // 音频：入后台队列 + Snackbar（带「查看」跳下载管理）。
+                      viewModel.enqueueFile(file);
+                      if (!context.mounted) return;
+                      _showQueuedSnackBar(context, 1);
                     }
 
                     Future<void> runBatch(Child? folderNode) async {
@@ -165,34 +217,44 @@ class DetailScreen extends StatelessWidget {
                         barrierDismissible: false,
                         builder: (_) => BatchDownloadDialog(
                           audioCount: viewModel.batchAudioCount(folderNode),
-                          download: (ct, onP) => viewModel.downloadFolder(
-                            folder: folderNode,
-                            onProgress: onP,
-                            cancelToken: ct,
-                          ),
+                          download: () async {
+                            final n = viewModel.enqueueFolder(folderNode);
+                            return BatchDownloadOutcome(
+                              ok: n,
+                              skipped: 0,
+                              failed: 0,
+                              cancelled: false,
+                            );
+                          },
                         ),
                       );
                       if (outcome == null || !context.mounted) return;
-                      final messenger = ScaffoldMessenger.of(context);
-                      messenger.showSnackBar(SnackBar(
-                        content: Text(outcome.cancelled
-                            ? Strings.batchDownloadCancelled
-                            : Strings.batchDownloadSummary(
-                                outcome.ok,
-                                outcome.skipped,
-                                outcome.failed,
-                              )),
-                      ));
+                      if (outcome.ok > 0) {
+                        _showQueuedSnackBar(context, outcome.ok);
+                      }
                     }
 
-                    return WorkFilesList(
-                      files: viewModel.files!,
-                      onFolderDownload: runBatch,
-                      onFileTap: (file) async {
-                        // 视频判断前置：视频扩展名优先于不可靠的 API
-                        // `type`（会把视频错标 audio）。视频走下载+外部
-                        // 播放，绝不进音频播放管线（否则"播放列表为空"）。
+                    /// 点击文件：视频已下载 → 直接开本地；否则走下载弹窗。
+                    /// 音频进播放管线；字幕预览。外层 try/catch 保证任何
+                    /// 平台异常（OpenFilex 等）都有 SnackBar，不会静默无反应。
+                    Future<void> handleFileTap(Child file) async {
+                      try {
                         if (viewModel.isVideoFile(file)) {
+                          final local =
+                              await viewModel.localPathIfDownloaded(file);
+                          if (local != null && context.mounted) {
+                            final open = await OpenFilex.open(local);
+                            AppLogger.info(
+                                'OpenFilex 本地视频: type=${open.type} path=$local');
+                            if (open.type != ResultType.done &&
+                                context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(Strings.downloadOpenFailed)),
+                              );
+                            }
+                            return;
+                          }
                           await runDownload(
                             file,
                             openOnDone: true,
@@ -202,15 +264,15 @@ class DetailScreen extends StatelessWidget {
                           return;
                         }
                         if (viewModel.isAudioFile(file)) {
-                          try {
-                            await viewModel.playFile(file, context);
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(Strings.playFailed(e))),
-                              );
-                            }
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context)
+                              ..clearSnackBars()
+                              ..showSnackBar(const SnackBar(
+                                content: Text(Strings.playStarting),
+                                duration: Duration(seconds: 1),
+                              ));
                           }
+                          await viewModel.playFile(file, context);
                           return;
                         }
                         if (viewModel.isSubtitleFile(file)) {
@@ -224,18 +286,81 @@ class DetailScreen extends StatelessWidget {
                           );
                           return;
                         }
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(Strings.unsupportedFileType),
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(Strings.unsupportedFileType),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        AppLogger.error('文件点击失败: ${file.title}', e);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(Strings.playFailed(e))),
+                          );
+                        }
+                      }
+                    }
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (viewModel.usingLocalDetail)
+                          Material(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .tertiaryContainer,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.cloud_off_outlined,
+                                    size: 18,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onTertiaryContainer,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      Strings.detailOfflineBanner,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onTertiaryContainer,
+                                          ),
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        viewModel.retryFromNetwork(),
+                                    child: const Text(
+                                        Strings.detailOfflineRetry),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                        );
-                      },
-                      onFileDownload: (file) => runDownload(
-                        file,
-                        openOnDone: false,
-                        title: Strings.audioDownloadTitle,
-                        prompt: Strings.audioDownloadPrompt,
-                      ),
+                        WorkFilesList(
+                          files: viewModel.files!,
+                          downloadedFileKeys: viewModel.downloadedFileKeys,
+                          onFolderDownload: runBatch,
+                          onFileTap: handleFileTap,
+                          onFilePlay: handleFileTap,
+                          onFileDownload: (file) => runDownload(
+                            file,
+                            openOnDone: false,
+                            title: Strings.audioDownloadTitle,
+                            prompt: Strings.audioDownloadPrompt,
+                          ),
+                        ),
+                      ],
                     );
                   }
 

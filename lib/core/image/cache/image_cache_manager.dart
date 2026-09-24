@@ -1,8 +1,10 @@
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/core/network/proxied_http_file_service.dart';
+import 'package:aaplay/utils/logger.dart';
 
 /// 图片缓存管理器
-/// 统一管理应用内所有图片的缓存策略
+/// 统一管理应用内所有图片的缓存策略。
+/// 走 [ProxiedHttpFileService]：封面与 Dio 共用同一应用内代理。
 class ImageCacheManager {
   static const String key = 'imageCache';
 
@@ -12,7 +14,7 @@ class ImageCacheManager {
       stalePeriod: const Duration(days: 30),
       maxNrOfCacheObjects: 500,
       repo: JsonCacheInfoRepository(databaseName: key),
-      fileService: HttpFileService(),
+      fileService: ProxiedHttpFileService(),
     ),
   );
 

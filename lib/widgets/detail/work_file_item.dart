@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/data/models/files/child.dart';
-import 'package:xuro/utils/logger.dart';
-import 'package:xuro/utils/file_size_formatter.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/core/download/download_service.dart';
+import 'package:aaplay/data/models/files/child.dart';
+import 'package:aaplay/utils/logger.dart';
+import 'package:aaplay/utils/file_size_formatter.dart';
 
 class WorkFileItem extends StatelessWidget {
   final Child file;
@@ -10,19 +11,31 @@ class WorkFileItem extends StatelessWidget {
   final Function(Child file)? onFileTap;
   final Function(Child file)? onFileDownload;
 
+  /// 已下载 fileKey 集合（来自 DetailViewModel 批量查询）；null = 未接入。
+  final Set<String>? downloadedFileKeys;
+
+  /// 已下载文件的「播放」回调（音频进播放管线 / 视频开本地文件）。
+  /// null 时不显示播放按钮（仍显示已下载角标）。
+  final Function(Child file)? onFilePlay;
+
   const WorkFileItem({
     super.key,
     required this.file,
     required this.indentation,
     this.onFileTap,
     this.onFileDownload,
+    this.downloadedFileKeys,
+    this.onFilePlay,
   });
 
   static const _videoExtensions = {'mp4', 'mkv', 'mov', 'avi', 'webm', 'm4v'};
 
   static const _subtitleExtensions = {'vtt', 'lrc', 'srt', 'txt'};
 
-  bool get _isAudio => file.type?.toLowerCase() == 'audio';
+  /// 与 `PlaybackContext.playlistAudioExtensions` 对齐：type 缺失时按扩展名兜底。
+  static const _audioExtensions = {
+    'mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'opus', 'wma', 'mp4a',
+  };
 
   bool get _isVideo {
     if ((file.type ?? '').toLowerCase() == 'video') return true;
@@ -30,9 +43,28 @@ class WorkFileItem extends StatelessWidget {
     return ext != null && _videoExtensions.contains(ext);
   }
 
+  bool get _isAudio {
+    if (_isVideo) return false;
+    final t = (file.type ?? '').toLowerCase();
+    if (t == 'audio') return true;
+    if (t.isNotEmpty) return false;
+    final ext = file.title?.split('.').last.toLowerCase();
+    return ext != null && _audioExtensions.contains(ext);
+  }
+
   bool get _isSubtitle {
     final ext = file.title?.split('.').last.toLowerCase();
     return ext != null && _subtitleExtensions.contains(ext);
+  }
+
+  bool get _isDownloaded {
+    final keys = downloadedFileKeys;
+    if (keys == null || file.title == null) return false;
+    // 兼容新/旧 fileKey（历史预签名 URL 行）。
+    for (final key in DownloadService.candidateKeys(file)) {
+      if (keys.contains(key)) return true;
+    }
+    return false;
   }
 
   @override
@@ -44,6 +76,7 @@ class WorkFileItem extends StatelessWidget {
     final bool isAudio = _isAudio && !isVideo;
     final bool isSubtitle = !isAudio && !isVideo && _isSubtitle;
     final bool tappable = isAudio || isVideo || isSubtitle;
+    final bool downloaded = _isDownloaded;
     final colorScheme = Theme.of(context).colorScheme;
 
     return Padding(
@@ -77,20 +110,46 @@ class WorkFileItem extends StatelessWidget {
                       ? Colors.orange
                       : Colors.blue,
         ),
-        trailing: isAudio && onFileDownload != null
-            ? IconButton(
-                icon: const Icon(Icons.download_outlined, size: 20),
-                tooltip: Strings.downloadToLocalTooltip,
-                onPressed: () => onFileDownload!.call(file),
+        trailing: downloaded
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (onFilePlay != null && (isAudio || isVideo))
+                    IconButton(
+                      icon: const Icon(Icons.play_arrow, size: 22),
+                      tooltip: Strings.downloadJobPlay,
+                      onPressed: () async {
+                        try {
+                          await onFilePlay!.call(file);
+                        } catch (e) {
+                          AppLogger.error('播放按钮回调失败: ${file.title}', e);
+                        }
+                      },
+                    ),
+                  const Tooltip(
+                    message: Strings.downloadedBadgeTooltip,
+                    child: Icon(Icons.download_done, size: 20, color: Colors.green),
+                  ),
+                ],
               )
-            : isVideo
-                ? const Icon(Icons.download_outlined, size: 20)
-                : null,
+            : isAudio && onFileDownload != null
+                ? IconButton(
+                    icon: const Icon(Icons.download_outlined, size: 20),
+                    tooltip: Strings.downloadToLocalTooltip,
+                    onPressed: () => onFileDownload!.call(file),
+                  )
+                : isVideo
+                    ? const Icon(Icons.download_outlined, size: 20)
+                    : null,
         dense: true,
         onTap: tappable
-            ? () {
+            ? () async {
                 AppLogger.debug('点击文件: ${file.title} (${file.type})');
-                onFileTap?.call(file);
+                try {
+                  await onFileTap?.call(file);
+                } catch (e) {
+                  AppLogger.error('文件点击回调失败: ${file.title}', e);
+                }
               }
             : null,
       ),

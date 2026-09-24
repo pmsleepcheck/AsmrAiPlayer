@@ -1,4 +1,4 @@
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/utils/logger.dart';
 
 enum AudioErrorType {
   playback, // 播放错误

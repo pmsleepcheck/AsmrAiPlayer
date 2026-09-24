@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:get_it/get_it.dart';
-import 'package:xuro/utils/logger.dart';
-import 'package:xuro/core/subtitle/i_subtitle_service.dart';
+import 'package:aaplay/utils/logger.dart';
+import 'package:aaplay/core/subtitle/i_subtitle_service.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
 import './i_audio_player_service.dart';
@@ -99,13 +99,30 @@ class AudioPlayerService implements IAudioPlayerService {
         _coreBuilt = true;
       }
 
-      final session = await AudioSession.instance;
-      await session.configure(const AudioSessionConfiguration.music());
+      // audio_session 平台通道在 Windows 上同样可能永久挂起——与通知栏
+      // 一样必须限时，否则 ready 卡死 → playWithContext 只能 15s 超时。
+      try {
+        final session = await AudioSession.instance
+            .timeout(const Duration(seconds: 3));
+        await session
+            .configure(const AudioSessionConfiguration.music())
+            .timeout(const Duration(seconds: 3));
+      } catch (e) {
+        AppLogger.warning('AudioSession 配置失败/超时，跳过（不阻塞播放）: $e');
+      }
 
       // 见 _notificationInitAttempted 字段注释：只允许尝试一次。
+      // 通知栏/权限在 Windows 上可能永久挂起（audio_service 平台通道），
+      // 挂住 ready = 点播放永远无反馈。超时/失败一律降级，绝不阻塞 ready。
       if (!_notificationInitAttempted) {
         _notificationInitAttempted = true;
-        await _notificationService.init();
+        final initFuture = _notificationService.init();
+        try {
+          await initFuture.timeout(const Duration(seconds: 5));
+        } catch (e) {
+          AppLogger.warning('通知栏初始化失败/超时，跳过（不阻塞播放）: $e');
+          initFuture.ignore();
+        }
       }
 
       _stateManager.initStateListeners();
@@ -152,7 +169,10 @@ class AudioPlayerService implements IAudioPlayerService {
     // 通知权限的首次弹窗从启动期 init() 挪到这里（真正开始播放前）：
     // playWithContext() 末尾会调用 resume()，两个入口因此共享同一次
     // latch 调用，不需要各自单独 await 一次。
-    await _notificationService.ensureNotificationPermission();
+    // permission_handler 在 Windows 上可能挂起 → 超时后直接播（无通知栏）。
+    await _notificationService
+        .ensureNotificationPermission()
+        .timeout(const Duration(seconds: 2), onTimeout: () {});
     await _playbackController.play();
   }
 
@@ -186,10 +206,59 @@ class AudioPlayerService implements IAudioPlayerService {
   // 上下文管理
   @override
   Future<void> playWithContext(PlaybackContext context) async {
-    await ready;
-    await _playbackController.setPlaybackContext(context);
-    // 添加自动播放
-    await resume();
+    // 分段限时 + 整段兜底：每段超时抛带阶段名的 AudioError（UI 能看到
+    // 真实卡点），15s 只防「段间」或未包装调用的挂起，不再是唯一反馈。
+    final start = _startWithContext(context);
+    try {
+      await start.timeout(const Duration(seconds: 15));
+    } on TimeoutException {
+      start.ignore();
+      AudioErrorHandler.throwError(
+        AudioErrorType.playback,
+        '启动播放',
+        '超时15秒',
+      );
+    }
+  }
+
+  Future<void> _startWithContext(PlaybackContext context) async {
+    try {
+      final sw = Stopwatch()..start();
+      await ready.timeout(const Duration(seconds: 8));
+      AppLogger.debug('启动播放: ready 完成 (${sw.elapsedMilliseconds}ms)');
+    } on TimeoutException {
+      AudioErrorHandler.throwError(
+        AudioErrorType.init,
+        '播放器初始化',
+        '超时8秒',
+      );
+    }
+    try {
+      final sw = Stopwatch()..start();
+      await _playbackController
+          .setPlaybackContext(context)
+          .timeout(const Duration(seconds: 6));
+      AppLogger.debug(
+          '启动播放: setPlaybackContext 完成 (${sw.elapsedMilliseconds}ms)');
+    } on TimeoutException {
+      AudioErrorHandler.throwError(
+        AudioErrorType.playback,
+        '加载播放源',
+        '超时6秒',
+      );
+    }
+    try {
+      final sw = Stopwatch()..start();
+      // 添加自动播放（resume 内部权限最多再占 2s）
+      await resume().timeout(const Duration(seconds: 4));
+      AppLogger.debug('启动播放: resume 完成 (${sw.elapsedMilliseconds}ms)');
+    } on TimeoutException {
+      AudioErrorHandler.throwError(
+        AudioErrorType.playback,
+        '开始播放',
+        '超时4秒',
+      );
+    }
   }
 
   // 状态访问

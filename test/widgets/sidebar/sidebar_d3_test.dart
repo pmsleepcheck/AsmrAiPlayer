@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xuro/core/settings/app_settings_service.dart';
-import 'package:xuro/core/theme/app_colors.dart';
-import 'package:xuro/widgets/common/brand_wordmark.dart';
+import 'package:aaplay/core/settings/app_settings_service.dart';
+import 'package:aaplay/core/theme/app_colors.dart';
+import 'package:aaplay/widgets/common/brand_wordmark.dart';
 
 /// `BrandWordmark` 在抽屉的深色 scheme 下仍然可读：字标取 `onSurface`、
 /// 句点取 `primary`——回归 CLAUDE.md 记录的「抽屉内 accent 不可见」陷阱。
@@ -29,10 +29,10 @@ void main() {
       testWidgets(v.name, (tester) async {
         final dark = AppColors.darkSchemeFor(v);
         await tester.pumpWidget(
-          _darkHost(dark, const BrandWordmark(text: 'Xuro')),
+          _darkHost(dark, const BrandWordmark(text: 'AsmrAiPlayer')),
         );
         final (wordmark, period) = _spans(tester);
-        expect(wordmark.text, 'Xuro');
+        expect(wordmark.text, 'AsmrAiPlayer');
         expect(wordmark.style?.color, dark.onSurface);
         // 句点是品牌里唯一着色的字符，必须是该配色的 accent。
         expect(period.text, '.');

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/core/theme/app_spacing.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/core/theme/app_spacing.dart';
 
 class GridError extends StatelessWidget {
   final String error;

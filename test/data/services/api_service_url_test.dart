@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xuro/data/services/api_service.dart';
+import 'package:aaplay/data/services/api_service.dart';
 
 void main() {
   group('ApiService.buildSearchUri', () {

@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/core/platform/i_lyric_overlay_controller.dart';
-import 'package:xuro/core/settings/app_settings_service.dart';
-import 'package:xuro/core/subtitle/i_subtitle_service.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/core/platform/i_lyric_overlay_controller.dart';
+import 'package:aaplay/core/settings/app_settings_service.dart';
+import 'package:aaplay/core/subtitle/i_subtitle_service.dart';
 import 'package:flutter/material.dart';
 
 class LyricOverlayManager {

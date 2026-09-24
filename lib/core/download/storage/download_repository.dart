@@ -1,8 +1,8 @@
 import 'package:sqflite/sqflite.dart';
-import 'package:xuro/core/database/database_service.dart';
-import 'package:xuro/core/download/models/download_entry.dart';
-import 'package:xuro/core/download/storage/i_download_repository.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/core/database/database_service.dart';
+import 'package:aaplay/core/download/models/download_entry.dart';
+import 'package:aaplay/core/download/storage/i_download_repository.dart';
+import 'package:aaplay/utils/logger.dart';
 
 class DownloadRepository implements IDownloadRepository {
   static const _table = 'downloads';

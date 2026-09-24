@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:xuro/core/settings/app_settings_service.dart';
+import 'package:aaplay/core/settings/app_settings_service.dart';
 
 /// 应用颜色配置——Modernist 体系。
 ///

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/data/models/my_lists/my_playlists/playlist.dart';
-import 'package:xuro/presentation/viewmodels/playlist_works_viewmodel.dart';
-import 'package:xuro/presentation/viewmodels/playlists_viewmodel.dart';
-import 'package:xuro/widgets/work_grid/enhanced_work_grid_view.dart';
-import 'package:xuro/presentation/layouts/work_layout_strategy.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/data/models/my_lists/my_playlists/playlist.dart';
+import 'package:aaplay/presentation/viewmodels/playlist_works_viewmodel.dart';
+import 'package:aaplay/presentation/viewmodels/playlists_viewmodel.dart';
+import 'package:aaplay/widgets/work_grid/enhanced_work_grid_view.dart';
+import 'package:aaplay/presentation/layouts/work_layout_strategy.dart';
 
 class PlaylistWorksView extends StatelessWidget {
   final Playlist playlist;

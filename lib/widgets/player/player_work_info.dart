@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:marquee/marquee.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/core/audio/models/playback_context.dart';
-import 'package:xuro/core/theme/app_spacing.dart';
-import 'package:xuro/core/theme/app_text_styles.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/core/audio/models/playback_context.dart';
+import 'package:aaplay/core/theme/app_spacing.dart';
+import 'package:aaplay/core/theme/app_text_styles.dart';
 
 /// 播放器「副标」区：作品名（跑马灯）+ 声优名。Modernist 三段式曲目信息
 /// （kicker/曲名/副标）里最不显眼的一层，前两段（社团名 kicker、曲目大标题）

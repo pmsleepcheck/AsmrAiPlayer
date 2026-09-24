@@ -24,9 +24,12 @@ class AppSettingsService extends ChangeNotifier {
   // 跨多个列表 ViewModel 共享的「仅看带字幕作品」筛选。收敛到此单点，
   // 取代各 VM 自行 SharedPreferences.getInstance() + dispose 回写陈旧值。
   static const String _subtitleFilterKey = 'subtitle_filter';
+  static const String _proxyEnabledKey = 'proxy_enabled';
+  static const String _proxyUrlKey = 'proxy_url';
 
   static const String defaultServerUrl = 'https://api.asmr.one/api';
   static const ColorVariant defaultColorVariant = ColorVariant.blue;
+  static const String defaultProxyUrl = '127.0.0.1:7890';
   static const List<String> defaultAudioFormatOrder = [
     'mp3',
     'flac',
@@ -53,6 +56,8 @@ class AppSettingsService extends ChangeNotifier {
   late bool _lyricOverlayUnlocked;
   late bool _backgroundPlayEnabled;
   late bool _hasSubtitleFilter;
+  late bool _proxyEnabled;
+  late String _proxyUrl;
 
   AppSettingsService(this._prefs) {
     _serverUrl = _prefs.getString(_serverUrlKey) ?? defaultServerUrl;
@@ -67,6 +72,8 @@ class AppSettingsService extends ChangeNotifier {
     _lyricOverlayUnlocked = _prefs.getBool(_lyricOverlayUnlockedKey) ?? false;
     _backgroundPlayEnabled = _prefs.getBool(_backgroundPlayKey) ?? true;
     _hasSubtitleFilter = _prefs.getBool(_subtitleFilterKey) ?? false;
+    _proxyEnabled = _prefs.getBool(_proxyEnabledKey) ?? false;
+    _proxyUrl = _prefs.getString(_proxyUrlKey) ?? defaultProxyUrl;
   }
 
   // === Server URL ===
@@ -136,6 +143,27 @@ class AppSettingsService extends ChangeNotifier {
     _backgroundPlayEnabled = enabled;
     notifyListeners();
     await _prefs.setBool(_backgroundPlayKey, enabled);
+  }
+
+  // === Proxy ===
+  /// `true` → 应用内 Dio 请求走 [proxyUrl] 指定的 HTTP 代理。
+  bool get proxyEnabled => _proxyEnabled;
+
+  /// `host:port` 形态（已由设置弹窗规范化）。关闭代理时该值仅被暂存。
+  String get proxyUrl => _proxyUrl;
+
+  Future<void> setProxyEnabled(bool enabled) async {
+    if (_proxyEnabled == enabled) return;
+    _proxyEnabled = enabled;
+    notifyListeners();
+    await _prefs.setBool(_proxyEnabledKey, enabled);
+  }
+
+  Future<void> setProxyUrl(String url) async {
+    if (_proxyUrl == url) return;
+    _proxyUrl = url;
+    notifyListeners();
+    await _prefs.setString(_proxyUrlKey, url);
   }
 
   // === Color Variant ===

@@ -1,4 +1,4 @@
-# Xuro
+# AsmrAiPlayer
 
 [English](README_en.md)
 
@@ -6,7 +6,7 @@
 
 ## 项目概述
 
-Xuro 旨在通过精美的动画和现代化的用户界面，提供流畅愉悦的 ASMR 聆听体验。
+AsmrAiPlayer 旨在通过精美的动画和现代化的用户界面，提供流畅愉悦的 ASMR 聆听体验。
 
 ## 特性
 
@@ -18,6 +18,7 @@ Xuro 旨在通过精美的动画和现代化的用户界面，提供流畅愉悦
 - ❤️ 收藏功能
 - 🔔 Android 13+ 通知权限适配
 - 🖥️ 悬浮歌词窗口（Android）
+- 🪟 **Windows 平台支持**：桌面端完整可用——后台播放、本地下载、离线播放、系统托盘外的常规桌面交互；Release 产物为单目录 `AsmrAiPlayer.exe`（需连同 `data\` 与 DLL 一起分发）
 - ⚙️ 完善的设置系统
   - 外观主题（浅色/深色/跟随系统）
   - 音频格式偏好
@@ -33,19 +34,29 @@ Xuro 旨在通过精美的动画和现代化的用户界面，提供流畅愉悦
   - 懒加载机制避免无效请求
   - 合理的缓存清理机制平衡本地存储
 
+## 项目愿景（AI 增强播放 · 规划中 TODO）
+
+以下能力为项目愿景，**尚未实现**，将按 [TODO 文档目录](docs/todos/) 逐步推进（对应本地规划 `todo.txt` 第一阶段方向）：
+
+- 🗣️ **同声传译**：播放中将日语音频实时转写并同声叠加目标语言（如中文）字幕
+- 🌍 **翻译**：日语字幕 → 中文翻译；列表播放入口提供「翻译 + 播放」组合操作
+- 🎤 **识别**：语音识别生成字幕；智能判断左右耳（文件名 left/right → 声学波形 → 手动兜底），支持双耳轮播「另一耳翻译」叠加模式
+- 🎛️ 播放中随时开/关翻译、随时手动切换声道方向
+
 ## 环境要求
 
 - Flutter 3.27.0+
 - Dart SDK >=3.2.3 <4.0.0
 - Android: minSdk 21 / targetSdk 33
 - Java 17
+- Windows: x64，Visual Studio 2022（含「使用 C++ 的桌面开发」与 Windows SDK）
 
 ## 安装与运行
 
 ```bash
 # 克隆仓库
-git clone https://github.com/WuMe-sicx/Xuro.git
-cd Xuro
+git clone https://github.com/pmsleepcheck/AsmrAiPlayer.git
+cd AsmrAiPlayer
 
 # 安装依赖
 flutter pub get
@@ -58,6 +69,9 @@ flutter run
 
 # 构建 Release APK
 flutter build apk --release
+
+# 构建 Windows Release（产物：build\windows\x64\runner\Release\AsmrAiPlayer.exe）
+flutter build windows --release
 ```
 
 ## 项目结构
@@ -86,5 +100,9 @@ lib/
 ## 许可证
 
 本项目采用 Creative Commons 非商业性使用-相同方式共享许可证 (CC BY-NC-SA) - 查看 [LICENSE](LICENSE) 文件了解详细信息。
+
+- 本仓库（AsmrAiPlayer）在原项目基础上的全部修改、新增代码与文档，均以 [CC BY-NC-SA](LICENSE) 叠加许可：允许非商业性地分享与演绎，但须署名且以**相同许可**继续开放。
+- **署名链**：本项目（AsmrAiPlayer）→ 上游 [Xuro](https://github.com/WuMe-sicx/Xuro)（[WuMe-sicx](https://github.com/WuMe-sicx)）→ 原始项目 [Yuro](https://github.com/asmroneapp/Yuro)（[asmroneapp](https://github.com/asmroneapp)）。再分发或衍生时请保留完整署名与许可证链接。
+- 项目愿景中的 AI 增强播放（同声传译 / 翻译 / 识别）为规划中功能（TODO），其后续实现同样适用本许可证。
 
 原项目作者：[asmroneapp](https://github.com/asmroneapp) | 原始仓库：[Yuro](https://github.com/asmroneapp/Yuro)

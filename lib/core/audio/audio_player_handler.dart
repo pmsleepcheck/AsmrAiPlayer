@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'package:xuro/core/audio/events/playback_event_hub.dart';
+import 'package:aaplay/core/audio/events/playback_event_hub.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:rxdart/rxdart.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/utils/logger.dart';
 
 class AudioPlayerHandler extends BaseAudioHandler {
   final AudioPlayer _player;

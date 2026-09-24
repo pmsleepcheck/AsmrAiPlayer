@@ -5,15 +5,15 @@
 /// @created 2026-08-13
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xuro/core/audio/events/playback_event.dart';
-import 'package:xuro/core/audio/events/playback_event_hub.dart';
-import 'package:xuro/core/audio/i_audio_player_service.dart';
-import 'package:xuro/core/audio/models/audio_track_info.dart';
-import 'package:xuro/core/audio/models/subtitle.dart';
-import 'package:xuro/core/subtitle/i_subtitle_service.dart';
-import 'package:xuro/data/models/files/child.dart';
-import 'package:xuro/data/models/works/work.dart';
-import 'package:xuro/presentation/viewmodels/player_viewmodel.dart';
+import 'package:aaplay/core/audio/events/playback_event.dart';
+import 'package:aaplay/core/audio/events/playback_event_hub.dart';
+import 'package:aaplay/core/audio/i_audio_player_service.dart';
+import 'package:aaplay/core/audio/models/audio_track_info.dart';
+import 'package:aaplay/core/audio/models/subtitle.dart';
+import 'package:aaplay/core/subtitle/i_subtitle_service.dart';
+import 'package:aaplay/data/models/files/child.dart';
+import 'package:aaplay/data/models/works/work.dart';
+import 'package:aaplay/presentation/viewmodels/player_viewmodel.dart';
 
 /// 播放路径全程用不到，误用即暴露（noSuchMethod 抛错）。
 class _FakeAudioService implements IAudioPlayerService {

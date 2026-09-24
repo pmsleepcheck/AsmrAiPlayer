@@ -1,18 +1,18 @@
-import 'package:xuro/core/audio/events/playback_event.dart';
-import 'package:xuro/core/audio/models/audio_track_info.dart';
-import 'package:xuro/core/audio/models/playback_context.dart';
-import 'package:xuro/core/subtitle/i_subtitle_service.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/core/audio/events/playback_event.dart';
+import 'package:aaplay/core/audio/models/audio_track_info.dart';
+import 'package:aaplay/core/audio/models/playback_context.dart';
+import 'package:aaplay/core/subtitle/i_subtitle_service.dart';
+import 'package:aaplay/utils/logger.dart';
 import 'package:flutter/foundation.dart';
-import 'package:xuro/core/audio/i_audio_player_service.dart';
-import 'package:xuro/core/audio/models/subtitle.dart';
+import 'package:aaplay/core/audio/i_audio_player_service.dart';
+import 'package:aaplay/core/audio/models/subtitle.dart';
 import 'dart:async';
-import 'package:xuro/core/subtitle/subtitle_loader.dart';
-import 'package:xuro/core/download/download_service.dart';
-import 'package:xuro/core/audio/events/playback_event_hub.dart';
+import 'package:aaplay/core/subtitle/subtitle_loader.dart';
+import 'package:aaplay/core/download/download_service.dart';
+import 'package:aaplay/core/audio/events/playback_event_hub.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:get_it/get_it.dart';
-import 'package:xuro/core/subtitle/subtitle_import_service.dart';
+import 'package:aaplay/core/subtitle/subtitle_import_service.dart';
 import 'package:rxdart/rxdart.dart';
 
 class PlayerViewModel extends ChangeNotifier {

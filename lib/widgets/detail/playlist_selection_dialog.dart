@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/data/models/playlists_with_exist_statu/playlist.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/data/models/playlists_with_exist_statu/playlist.dart';
 
 class PlaylistSelectionDialog extends StatefulWidget {
   final List<Playlist>? playlists;

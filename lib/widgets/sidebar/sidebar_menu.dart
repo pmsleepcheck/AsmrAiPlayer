@@ -2,24 +2,25 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/core/theme/app_colors.dart';
-import 'package:xuro/core/theme/app_radius.dart';
-import 'package:xuro/core/theme/app_spacing.dart';
-import 'package:xuro/core/theme/app_text_styles.dart';
-import 'package:xuro/core/theme/theme_controller.dart';
-import 'package:xuro/presentation/viewmodels/auth_viewmodel.dart';
-import 'package:xuro/presentation/widgets/auth/login_dialog.dart';
-import 'package:xuro/screens/browse/circles_screen.dart';
-import 'package:xuro/screens/browse/tags_screen.dart';
-import 'package:xuro/screens/browse/voice_actors_screen.dart';
-import 'package:xuro/screens/about_screen.dart';
-import 'package:xuro/screens/favorites_screen.dart';
-import 'package:xuro/screens/settings/settings_screen.dart';
-import 'package:xuro/widgets/common/brand_wordmark.dart';
-import 'package:xuro/widgets/sidebar/sidebar_group.dart';
-import 'package:xuro/widgets/sidebar/sidebar_header.dart';
-import 'package:xuro/widgets/sidebar/sidebar_tile.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/core/theme/app_colors.dart';
+import 'package:aaplay/core/theme/app_radius.dart';
+import 'package:aaplay/core/theme/app_spacing.dart';
+import 'package:aaplay/core/theme/app_text_styles.dart';
+import 'package:aaplay/core/theme/theme_controller.dart';
+import 'package:aaplay/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:aaplay/presentation/widgets/auth/login_dialog.dart';
+import 'package:aaplay/screens/browse/circles_screen.dart';
+import 'package:aaplay/screens/browse/tags_screen.dart';
+import 'package:aaplay/screens/browse/voice_actors_screen.dart';
+import 'package:aaplay/screens/about_screen.dart';
+import 'package:aaplay/screens/download_management_screen.dart';
+import 'package:aaplay/screens/favorites_screen.dart';
+import 'package:aaplay/screens/settings/settings_screen.dart';
+import 'package:aaplay/widgets/common/brand_wordmark.dart';
+import 'package:aaplay/widgets/sidebar/sidebar_group.dart';
+import 'package:aaplay/widgets/sidebar/sidebar_header.dart';
+import 'package:aaplay/widgets/sidebar/sidebar_tile.dart';
 
 /// 侧边抽屉：跟随应用主题的清爽列表，层级由 2px（组）/ 1px（行）分隔线表达。
 ///
@@ -158,6 +159,14 @@ class SidebarMenu extends StatelessWidget {
                             Strings.recentPlay,
                           ),
                         ),
+                        SidebarTile(
+                          icon: Icons.download_outlined,
+                          title: Strings.downloadManagementMenu,
+                          onTap: () => _navigate(
+                            context,
+                            const DownloadManagementScreen(),
+                          ),
+                        ),
                       ],
                     ),
                     _groupDivider(cs),
@@ -288,7 +297,7 @@ class _SidebarFooterState extends State<_SidebarFooter> {
         future: _packageInfoFuture,
         builder: (context, snapshot) {
           final label =
-              snapshot.hasData ? 'Xuro v${snapshot.data!.version}' : 'Xuro';
+              snapshot.hasData ? 'AsmrAiPlayer v${snapshot.data!.version}' : 'AsmrAiPlayer';
           return Row(
             mainAxisSize: MainAxisSize.min,
             children: [

@@ -4,10 +4,10 @@
 /// @created 2026-08-13
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/presentation/viewmodels/tags_viewmodel.dart';
-import 'package:xuro/screens/browse/widgets/browse_list_item.dart';
-import 'package:xuro/widgets/common/app_search_field.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/presentation/viewmodels/tags_viewmodel.dart';
+import 'package:aaplay/screens/browse/widgets/browse_list_item.dart';
+import 'package:aaplay/widgets/common/app_search_field.dart';
 
 class TagsScreen extends StatelessWidget {
   const TagsScreen({super.key});

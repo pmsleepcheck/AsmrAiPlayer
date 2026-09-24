@@ -1,11 +1,11 @@
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/data/models/works/work.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/data/models/works/work.dart';
 import 'package:flutter/foundation.dart';
-import 'package:xuro/data/models/my_lists/my_playlists/playlist.dart';
-import 'package:xuro/data/models/my_lists/my_playlists/pagination.dart';
-import 'package:xuro/data/services/api_service.dart';
-import 'package:xuro/data/services/exceptions/network_exception.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/data/models/my_lists/my_playlists/playlist.dart';
+import 'package:aaplay/data/models/my_lists/my_playlists/pagination.dart';
+import 'package:aaplay/data/services/api_service.dart';
+import 'package:aaplay/data/services/exceptions/network_exception.dart';
+import 'package:aaplay/utils/logger.dart';
 import 'package:get_it/get_it.dart';
 
 class PlaylistsViewModel extends ChangeNotifier {

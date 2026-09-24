@@ -28,7 +28,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: Xuro 版本号
+      label: AsmrAiPlayer 版本号
       placeholder: "例如：v0.1.3"
     validations:
       required: false
@@ -52,7 +52,7 @@ body:
     attributes:
       label: 问题描述
       description: "详细描述你遇到的问题"
-      placeholder: "我在使用 Xuro 时..."
+      placeholder: "我在使用 AsmrAiPlayer 时..."
     validations:
       required: true
 

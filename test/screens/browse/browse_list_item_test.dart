@@ -5,9 +5,9 @@
 /// @created 2026-08-13
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xuro/core/settings/app_settings_service.dart';
-import 'package:xuro/core/theme/app_colors.dart';
-import 'package:xuro/screens/browse/widgets/browse_list_item.dart';
+import 'package:aaplay/core/settings/app_settings_service.dart';
+import 'package:aaplay/core/theme/app_colors.dart';
+import 'package:aaplay/screens/browse/widgets/browse_list_item.dart';
 
 Widget _host(ColorScheme scheme, Widget child) => MaterialApp(
       theme: ThemeData(colorScheme: scheme, useMaterial3: true),

@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:xuro/core/theme/app_spacing.dart';
+import 'package:aaplay/core/theme/app_spacing.dart';
 
 enum _TileType { navigation, toggle, selection }
 

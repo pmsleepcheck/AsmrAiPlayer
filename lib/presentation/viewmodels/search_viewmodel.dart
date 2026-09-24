@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
-import 'package:xuro/data/models/works/work.dart';
-import 'package:xuro/data/models/works/pagination.dart';
-import 'package:xuro/data/services/api_service.dart';
-import 'package:xuro/data/services/exceptions/network_exception.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/data/models/works/work.dart';
+import 'package:aaplay/data/models/works/pagination.dart';
+import 'package:aaplay/data/services/api_service.dart';
+import 'package:aaplay/data/services/exceptions/network_exception.dart';
+import 'package:aaplay/utils/logger.dart';
 
 class SearchViewModel extends ChangeNotifier {
   final _apiService = GetIt.I<ApiService>();

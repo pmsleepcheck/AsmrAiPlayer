@@ -6,10 +6,12 @@ import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:xuro/core/download/models/download_entry.dart';
-import 'package:xuro/core/download/storage/i_download_repository.dart';
-import 'package:xuro/data/models/files/child.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/core/download/models/download_entry.dart';
+import 'package:aaplay/core/download/storage/i_download_repository.dart';
+import 'package:aaplay/core/network/proxy_config.dart';
+import 'package:aaplay/core/settings/app_settings_service.dart';
+import 'package:aaplay/data/models/files/child.dart';
+import 'package:aaplay/utils/logger.dart';
 
 enum DownloadStatus {
   success,
@@ -53,9 +55,18 @@ class DownloadService {
   final IDownloadRepository _repository;
   final Dio _dio;
 
-  DownloadService({required IDownloadRepository repository, Dio? dio})
-      : _repository = repository,
-        _dio = dio ?? Dio();
+  /// [settings] 可选：提供时挂应用内代理（`ProxyConfig.apply`）；
+  /// 单元测试不传即可保持裸 `Dio()` 行为不变。
+  DownloadService({
+    required IDownloadRepository repository,
+    Dio? dio,
+    AppSettingsService? settings,
+  })  : _repository = repository,
+        _dio = dio ?? Dio() {
+    if (settings != null) {
+      ProxyConfig.apply(_dio, settings);
+    }
+  }
 
   /// Windows/MTP 设备保留名（电脑端打不开/复制异常，与"外部可见"目标冲突）。
   static final RegExp _reservedStem = RegExp(
@@ -116,12 +127,57 @@ class DownloadService {
   /// 下同名 `01.mp3`）必须算作不同下载，否则会互相误判命中（DB 行或物理
   /// 路径）。落盘名已改回接口原始标题（见 [diskFileName]），同名冲突由
   /// `_destPath` 的 `<fileKey>/` 子目录隔离。身份取 `hash`（API 提供，最稳）
-  /// > `mediaDownloadUrl` > `title`，md5 摘要。
+  /// > **去 query/fragment 的** `mediaDownloadUrl` > `title`，md5 摘要。
+  ///
+  /// 预签名 URL 的 query（`X-Amz-*` 等）每次签发都变，**绝不能进身份**——
+  /// 否则跨会话 `findCompleted` 必 miss，看起来就是「匹配不上已下载」。
   static String fileKey(Child file) {
+    final hash = file.hash;
+    if (hash != null && hash.isNotEmpty) {
+      return md5.convert(utf8.encode(hash)).toString();
+    }
+    final url = file.mediaDownloadUrl;
+    if (url != null && url.isNotEmpty) {
+      return md5.convert(utf8.encode(_stripUrlNoise(url))).toString();
+    }
+    return md5.convert(utf8.encode(file.title ?? 'file')).toString();
+  }
+
+  /// 去掉 URL 的 query/fragment（预签名 token / 锚点不参与身份）。
+  /// 注意 `Uri.replace(query: null)` 是「保留原 query」——必须重建无 query 的
+  /// Uri。解析失败时原样返回（保守：不丢身份，宁可 key 略脏）。
+  static String _stripUrlNoise(String url) {
+    final u = Uri.tryParse(url);
+    if (u == null) return url;
+    try {
+      return Uri(
+        scheme: u.scheme,
+        userInfo: u.userInfo,
+        host: u.host,
+        port: u.hasPort ? u.port : null,
+        path: u.path,
+      ).toString();
+    } catch (_) {
+      // 无 host 的相对 URL 等：直接截断到 path。
+      final noFragment = url.split('#').first;
+      return noFragment.split('?').first;
+    }
+  }
+
+  /// 旧算法（URL **原样**进 md5）：仅用于回查历史 DB 行/落盘目录。
+  /// [hash] 存在时与 [fileKey] 相同；无 hash 且 URL 带 query 时不同。
+  static String legacyFileKey(Child file) {
     final idSource = (file.hash != null && file.hash!.isNotEmpty)
         ? file.hash!
         : (file.mediaDownloadUrl ?? file.title ?? 'file');
     return md5.convert(utf8.encode(idSource)).toString();
+  }
+
+  /// 查询用候选 key：新 key 优先，旧 key 兜底（二者相同则只返回一个）。
+  static List<String> candidateKeys(Child file) {
+    final primary = fileKey(file);
+    final legacy = legacyFileKey(file);
+    return legacy == primary ? [primary] : [primary, legacy];
   }
 
   /// 落盘文件名 = **接口返回的原始标题**（仅做 FS 安全化，保留可读性与
@@ -143,6 +199,13 @@ class DownloadService {
       }
     }
     return getApplicationDocumentsDirectory();
+  }
+
+  /// 下载根目录绝对路径 `<base>/downloads`（Android=外部应用专属，
+  /// 其余平台=应用文档目录）。供 UI 展示/在资源管理器中打开。
+  Future<String> downloadsRootPath() async {
+    final base = await _baseDir();
+    return p.join(base.path, 'downloads');
   }
 
   Future<Directory> _workDir(String workId) async {
@@ -177,24 +240,124 @@ class DownloadService {
 
   /// 已完成且文件确实在盘上的下载记录（按稳定身份 [key] 查）；若 DB 有行但
   /// 文件已丢失，删除失效行（一致性：失效行会让 app 误判已下载）后返回 null。
+  ///
+  /// DB miss 时做**磁盘回退**：直接看 `downloads/<workId>/<key>/` 下是否已有
+  /// 成品文件（排除 `.dl_tmp`/`.dl_bak`），命中则 best-effort 回填 DB 行。
+  /// Windows 上 DB 路径不稳/行丢失时，文件仍在盘上也能匹配。
   Future<DownloadEntry?> findCompleted(String workId, String key) async {
     final entry = await _repository.find(workId, key);
-    if (entry == null) return null;
-    if (await File(entry.filePath).exists()) return entry;
-    AppLogger.warning('下载记录指向缺失文件，清理失效行: ${entry.filePath}');
+    if (entry != null) {
+      if (await _filePresent(entry.filePath)) return entry;
+      AppLogger.warning('下载记录指向缺失文件，清理失效行: ${entry.filePath}');
+      try {
+        await _repository.remove(workId, key);
+      } catch (e) {
+        AppLogger.error('清理失效下载行失败', e);
+      }
+    }
+    return _recoverFromDisk(workId, key);
+  }
+
+  Future<bool> _filePresent(String path) async {
     try {
-      await _repository.remove(workId, key);
+      return await File(path).exists();
     } catch (e) {
-      AppLogger.error('清理失效下载行失败', e);
+      // Windows/OneDrive 等瞬时不可见：保守视为缺失（与旧行为一致），
+      // 磁盘回退仍会再扫一次目录。
+      AppLogger.warning('检查下载文件存在性失败: $path ($e)');
+      return false;
+    }
+  }
+
+  /// 磁盘回退：`downloads/<workId>/<key>/` 下已有成品 → 回填 DB 并返回。
+  Future<DownloadEntry?> _recoverFromDisk(String workId, String key) async {
+    try {
+      final base = await _baseDir();
+      final sub = Directory(p.join(base.path, 'downloads', workId, key));
+      if (!await sub.exists()) return null;
+      await for (final entity in sub.list(followLinks: false)) {
+        if (entity is! File) continue;
+        final path = entity.path;
+        if (path.endsWith('.dl_tmp') || path.endsWith('.dl_bak')) continue;
+        final stat = await entity.stat();
+        final recovered = DownloadEntry(
+          workId: workId,
+          fileKey: key,
+          fileName: p.basename(path),
+          filePath: path,
+          mediaType: '',
+          sourceUrl: '',
+          size: stat.size,
+          createdAt: stat.modified.millisecondsSinceEpoch,
+        );
+        try {
+          await _repository.upsert(recovered);
+          AppLogger.debug('磁盘回退回填下载行: $workId/$key');
+        } catch (e) {
+          AppLogger.warning('磁盘回填下载行失败（仍返回路径）: $e');
+        }
+        return recovered;
+      }
+    } catch (e) {
+      AppLogger.warning('磁盘回退扫描失败: $workId/$key ($e)');
     }
     return null;
   }
 
   /// 若该文件已完整下载，返回本地路径（供离线播放走本地源）。
+  ///
+  /// 匹配顺序：新 [fileKey] → 旧 [legacyFileKey]（历史预签名 URL 行）→
+  /// 按落盘文件名扫 `downloads/<workId>/*/`（仅**唯一**命中才认，避免同名误配）。
   Future<String?> localPathIfDownloaded(String workId, Child file) async {
     if (file.title == null) return null;
-    final entry = await findCompleted(workId, fileKey(file));
-    return entry?.filePath;
+    for (final key in candidateKeys(file)) {
+      final entry = await findCompleted(workId, key);
+      if (entry != null) return entry.filePath;
+    }
+    return _recoverByFileName(workId, file);
+  }
+
+  /// 最终回退：按 `diskFileName(file)` 扫该作品所有 `<fileKey>/` 子目录。
+  /// 仅唯一命中时回填主 key（同名多份 = 歧义，宁可 miss 不误配）。
+  Future<String?> _recoverByFileName(String workId, Child file) async {
+    try {
+      final name = diskFileName(file);
+      final base = await _baseDir();
+      final workDir = Directory(p.join(base.path, 'downloads', workId));
+      if (!await workDir.exists()) return null;
+      final matches = <String>[];
+      await for (final keyDir in workDir.list(followLinks: false)) {
+        if (keyDir is! Directory) continue;
+        final candidate = File(p.join(keyDir.path, name));
+        if (await _filePresent(candidate.path)) matches.add(candidate.path);
+      }
+      if (matches.length == 1) {
+        final path = matches.single;
+        AppLogger.debug('按文件名磁盘回退命中: $workId/$name');
+        try {
+          final stat = await File(path).stat();
+          await _repository.upsert(DownloadEntry(
+            workId: workId,
+            fileKey: fileKey(file),
+            fileName: name,
+            filePath: path,
+            mediaType: (file.type ?? '').toLowerCase(),
+            sourceUrl: file.mediaDownloadUrl ?? '',
+            size: stat.size,
+            createdAt: stat.modified.millisecondsSinceEpoch,
+          ));
+        } catch (e) {
+          AppLogger.warning('按文件名回填下载行失败（仍返回路径）: $e');
+        }
+        return path;
+      }
+      if (matches.length > 1) {
+        AppLogger.warning('同名多份磁盘文件，跳过模糊回退: $workId/$name');
+      }
+    } catch (e) {
+      AppLogger.warning('按文件名磁盘回退失败: $e');
+    }
+    return null;
   }
 
   /// 批量解析某作品所有已完整下载的文件，供恢复/构建一个 N 轨播放列表时
@@ -213,10 +376,10 @@ class DownloadService {
   /// 不应该用它退化的 fileKey 去查这份 map。
   Future<Map<String, String>> localPathsForWork(String workId) async {
     final entries = await _repository.listByWork(workId);
-    final live = <DownloadEntry>[];
+    final map = <String, String>{};
     for (final entry in entries) {
-      if (await File(entry.filePath).exists()) {
-        live.add(entry);
+      if (await _filePresent(entry.filePath)) {
+        map[entry.fileKey] = entry.filePath;
         continue;
       }
       AppLogger.warning('下载记录指向缺失文件，清理失效行: ${entry.filePath}');
@@ -226,7 +389,53 @@ class DownloadService {
         AppLogger.error('清理失效下载行失败', e);
       }
     }
-    return pathsByFileKey(live);
+    // 磁盘回退：DB 丢行 / 旧 fileKey 目录名仍有效时，从目录名补 map。
+    final disk = await _diskPathsForWork(workId);
+    for (final e in disk.entries) {
+      if (map.containsKey(e.key)) continue;
+      map[e.key] = e.value;
+      try {
+        final stat = await File(e.value).stat();
+        await _repository.upsert(DownloadEntry(
+          workId: workId,
+          fileKey: e.key,
+          fileName: p.basename(e.value),
+          filePath: e.value,
+          mediaType: '',
+          sourceUrl: '',
+          size: stat.size,
+          createdAt: stat.modified.millisecondsSinceEpoch,
+        ));
+      } catch (err) {
+        AppLogger.warning('磁盘回填下载行失败: $err');
+      }
+    }
+    return map;
+  }
+
+  /// 扫 `downloads/<workId>/<fileKey>/` → fileKey→绝对路径（一 key 取一个成品）。
+  Future<Map<String, String>> _diskPathsForWork(String workId) async {
+    final out = <String, String>{};
+    try {
+      final base = await _baseDir();
+      final workDir = Directory(p.join(base.path, 'downloads', workId));
+      if (!await workDir.exists()) return out;
+      await for (final keyDir in workDir.list(followLinks: false)) {
+        if (keyDir is! Directory) continue;
+        final key = p.basename(keyDir.path);
+        await for (final f in keyDir.list(followLinks: false)) {
+          if (f is! File) continue;
+          if (f.path.endsWith('.dl_tmp') || f.path.endsWith('.dl_bak')) {
+            continue;
+          }
+          out[key] = f.path;
+          break;
+        }
+      }
+    } catch (e) {
+      AppLogger.warning('磁盘扫描下载目录失败: $workId ($e)');
+    }
+    return out;
   }
 
   /// 纯映射：DB 行列表 → fileKey→filePath；不做任何 IO，供单测直接构造
@@ -251,6 +460,7 @@ class DownloadService {
       return const DownloadResult(DownloadStatus.ioError);
     }
 
+    // 主 key（去 query 的 URL）；写盘/回填统一用它。
     final key = fileKey(file);
 
     // 前置 IO/DB（去重查询、路径解析、tmp/bak 构造）也纳入同一 try：
@@ -263,9 +473,11 @@ class DownloadService {
 
     try {
       // 去重：已完整下载直接复用（正常早返回，不进 catch）。
-      final existing = await findCompleted(workId, key);
-      if (existing != null) {
-        return DownloadResult(DownloadStatus.alreadyExists, existing.filePath);
+      // localPathIfDownloaded 覆盖新/旧 fileKey + 文件名磁盘回退，
+      // 比单查 findCompleted(workId, key) 更能匹配历史预签名 URL 落盘。
+      final existingPath = await localPathIfDownloaded(workId, file);
+      if (existingPath != null) {
+        return DownloadResult(DownloadStatus.alreadyExists, existingPath);
       }
 
       destPath = await _destPath(workId, file);
@@ -351,22 +563,68 @@ class DownloadService {
     }
   }
 
-  Future<void> removeDownload(String workId, Child file) async {
-    final key = fileKey(file);
-    String? path;
-    try {
-      path = (await _repository.find(workId, key))?.filePath;
-    } catch (e) {
-      AppLogger.error('查询待移除下载失败', e);
+  /// 全部已完成下载（本地缓存页主数据源；与
+  /// [IDownloadRepository.listAllOldestFirst] 同序）。**仅返回文件仍在盘上的
+  /// 条目**——DB 有行但文件被用户手动删掉时不当作可播放缓存。
+  Future<List<DownloadEntry>> listAllDownloads() async {
+    final entries = await _repository.listAllOldestFirst();
+    final live = <DownloadEntry>[];
+    for (final e in entries) {
+      if (await _filePresent(e.filePath)) live.add(e);
     }
-    // DB 行先删（一致性关键：失效行会让 app 误判已下载）；
-    // 本地文件 best-effort，孤儿文件只是磁盘浪费、无害。
+    return live;
+  }
+
+  /// 按已完成条目删除（本地缓存页）。与 [removeDownload] 同一不变量：
+  /// **DB 行先行**——至少一行删除成功才动文件，避免失效行 + 文件被删。
+  Future<void> removeByEntry(DownloadEntry entry) async {
     var dbRemoved = false;
     try {
-      await _repository.remove(workId, key);
+      await _repository.remove(entry.workId, entry.fileKey);
       dbRemoved = true;
     } catch (e) {
       AppLogger.error('移除下载 DB 行失败（保留文件以免失效行）', e);
+    }
+    if (!dbRemoved) return;
+    try {
+      final f = File(entry.filePath);
+      if (await f.exists()) await f.delete();
+      await _pruneEmptyDir(entry.filePath);
+    } catch (e) {
+      AppLogger.warning('移除下载文件失败（DB 行已删，孤儿无害）: $e');
+    }
+  }
+
+  Future<void> removeDownload(String workId, Child file) async {
+    final keys = candidateKeys(file);
+    String? path;
+    try {
+      for (final key in keys) {
+        final entry = await _repository.find(workId, key);
+        if (entry != null) {
+          path = entry.filePath;
+          break;
+        }
+      }
+      // DB 全 miss 时按文件名找盘上成品（与 localPathIfDownloaded 对称）。
+      path ??= await _recoverByFileName(workId, file);
+    } catch (e) {
+      AppLogger.error('查询待移除下载失败', e);
+    }
+    // DB 行先删（一致性关键：失效行会让 app 误判已下载）；覆盖新/旧 key。
+    // 仅当至少一行删除成功才动文件——避免 DB 失败时留下失效行却删了文件。
+    var dbRemoved = false;
+    final keysToRemove = <String>{...keys};
+    if (path != null) {
+      keysToRemove.add(p.basename(p.dirname(path)));
+    }
+    for (final key in keysToRemove) {
+      try {
+        await _repository.remove(workId, key);
+        dbRemoved = true;
+      } catch (e) {
+        AppLogger.error('移除下载 DB 行失败（保留文件以免失效行）', e);
+      }
     }
     if (dbRemoved && path != null) {
       try {

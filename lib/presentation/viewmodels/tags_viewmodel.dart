@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
-import 'package:xuro/data/models/tags/tag_item.dart';
-import 'package:xuro/data/services/api_service.dart';
-import 'package:xuro/data/services/exceptions/network_exception.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/data/models/tags/tag_item.dart';
+import 'package:aaplay/data/services/api_service.dart';
+import 'package:aaplay/data/services/exceptions/network_exception.dart';
+import 'package:aaplay/utils/logger.dart';
 import 'package:get_it/get_it.dart';
 
 class TagsViewModel extends ChangeNotifier {

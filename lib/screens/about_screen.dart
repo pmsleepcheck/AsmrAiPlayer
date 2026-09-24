@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/core/theme/app_spacing.dart';
-import 'package:xuro/core/theme/app_text_styles.dart';
-import 'package:xuro/screens/settings/widgets/settings_group.dart';
-import 'package:xuro/screens/settings/widgets/settings_tile.dart';
-import 'package:xuro/screens/settings/widgets/settings_theme.dart';
-import 'package:xuro/presentation/widgets/update/update_dialog.dart';
-import 'package:xuro/widgets/common/app_footer.dart';
-import 'package:xuro/widgets/common/brand_wordmark.dart';
-import 'package:xuro/widgets/common/social_icon_row.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/core/theme/app_spacing.dart';
+import 'package:aaplay/core/theme/app_text_styles.dart';
+import 'package:aaplay/screens/settings/widgets/settings_group.dart';
+import 'package:aaplay/screens/settings/widgets/settings_tile.dart';
+import 'package:aaplay/screens/settings/widgets/settings_theme.dart';
+import 'package:aaplay/presentation/widgets/update/update_dialog.dart';
+import 'package:aaplay/widgets/common/app_footer.dart';
+import 'package:aaplay/widgets/common/brand_wordmark.dart';
+import 'package:aaplay/widgets/common/social_icon_row.dart';
 
 class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});

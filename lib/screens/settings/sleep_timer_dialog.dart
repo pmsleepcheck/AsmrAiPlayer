@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/core/platform/sleep_timer_controller.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/core/platform/sleep_timer_controller.dart';
 
 /// 睡眠定时单选对话框：关闭 / 15 / 30 / 45 / 60 / 90 分钟。
 /// 选择即写入 [SleepTimerController] 并关闭（无确认按钮，符合单选语义）。

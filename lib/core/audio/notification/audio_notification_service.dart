@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'package:xuro/core/audio/events/playback_event_hub.dart';
-import 'package:xuro/core/subtitle/i_subtitle_service.dart';
+import 'package:aaplay/core/audio/events/playback_event_hub.dart';
+import 'package:aaplay/core/subtitle/i_subtitle_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/utils/logger.dart';
 import '../models/audio_track_info.dart';
 import '../audio_player_handler.dart';
 
@@ -36,7 +36,7 @@ class AudioNotificationService {
       _audioHandler = await AudioService.init(
         builder: () => AudioPlayerHandler(_player, _eventHub),
         config: const AudioServiceConfig(
-          androidNotificationChannelId: 'com.xuro.audio',
+          androidNotificationChannelId: 'com.aaplay.audio',
           androidNotificationChannelName: 'ASMR One 播放器',
           androidNotificationOngoing: true,
           androidStopForegroundOnPause: true,

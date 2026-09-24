@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/data/models/works/work.dart';
-import 'package:xuro/data/models/works/tag.dart';
-import 'package:xuro/widgets/common/tag_chip.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/data/models/works/work.dart';
+import 'package:aaplay/data/models/works/tag.dart';
+import 'package:aaplay/widgets/common/tag_chip.dart';
 
 class WorkTagsPanel extends StatelessWidget {
   final Work work;

@@ -1,8 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:xuro/data/models/update_info.dart';
-import 'package:xuro/data/services/exceptions/update_exception.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/core/network/proxy_config.dart';
+import 'package:aaplay/core/settings/app_settings_service.dart';
+import 'package:aaplay/data/models/update_info.dart';
+import 'package:aaplay/data/services/exceptions/update_exception.dart';
+import 'package:aaplay/utils/logger.dart';
 
 class UpdateCheckResult {
   final UpdateInfo latest;
@@ -18,11 +20,12 @@ class UpdateCheckResult {
 
 /// 读取本仓库 GitHub Releases 并与当前版本比对。
 ///
-/// 独立 Dio，host 固定为 api.github.com：**刻意不监听 `AppSettingsService`**，
-/// 因为 asmr 节点切换与 GitHub 无关；也不挂 `AuthInterceptor`。
+/// 独立 Dio，host 固定为 api.github.com：**不随 `AppSettingsService` 轮换
+/// baseUrl**（asmr 节点切换与 GitHub 无关），也不挂 `AuthInterceptor`。
+/// 仅注入 settings 用于传输层代理（`ProxyConfig.apply`）。
 class UpdateService {
-  static const String _owner = 'WuMe-sicx';
-  static const String _repo = 'Xuro';
+  static const String _owner = 'pmsleepcheck';
+  static const String _repo = 'AsmrAiPlayer';
 
   /// CI 用 `softprops/action-gh-release` 且 `prerelease: true`，所以
   /// `/releases/latest`（只返回 non-prerelease）取不到——必须用列表端点。
@@ -34,7 +37,7 @@ class UpdateService {
 
   final Dio _dio;
 
-  UpdateService()
+  UpdateService({required AppSettingsService settings})
       : _dio = Dio(BaseOptions(
           baseUrl: 'https://api.github.com',
           connectTimeout: const Duration(seconds: 15),
@@ -43,7 +46,9 @@ class UpdateService {
             'Accept': 'application/vnd.github+json',
             'X-GitHub-Api-Version': '2022-11-28',
           },
-        ));
+        )) {
+    ProxyConfig.apply(_dio, settings);
+  }
 
   Future<UpdateCheckResult> checkForUpdate() async {
     try {

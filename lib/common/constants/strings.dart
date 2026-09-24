@@ -8,6 +8,7 @@ class Strings {
   static const String retry = '重试';
   static const String cancel = '取消';
   static const String confirm = '确认';
+  static const String back = '返回';
 
   // Error prompts — connection & login state
   static const String networkVpnHint = '请先连接 VPN 服务';
@@ -37,8 +38,25 @@ class Strings {
   static const String navRecommend = '推荐';
   static const String navPopular = '热门';
   static const String tabFavorites = '收藏';
+  static const String tabLocalCache = '本地缓存';
   static const String homeTitleRecommend = '为你推荐';
   static const String homeTitlePopular = '热门作品';
+
+  // Local cache (downloaded files browser)
+  static const String localCacheEmpty = '暂无本地缓存文件';
+  static const String localCacheFilterAll = '全部';
+  static const String localCacheFilterVideo = '视频';
+  static const String localCacheFilterAudio = '音频';
+  static const String localCachePlayTooltip = '播放本地文件';
+  static const String localCacheDeleteTooltip = '删除本地文件';
+  static const String localCacheDeleteConfirmTitle = '删除本地文件';
+  static String localCacheDeleteConfirm(String name) => '确定删除「$name」？';
+  static const String localCacheDeleted = '已删除';
+  static const String localCacheDeleteFailed = '删除失败';
+
+  // Detail — offline snapshot fallback
+  static const String detailOfflineBanner = '网络不可用，正在显示本地详情';
+  static const String detailOfflineRetry = '重试联网';
 
   // Similar works
   static const String similarWorks = '相关推荐';
@@ -126,6 +144,7 @@ class Strings {
   // Detail / files
   static const String fileList = '文件列表';
   static const String downloadToLocalTooltip = '下载到本地（离线播放）';
+  static const String downloadedBadgeTooltip = '已下载到本地';
   static const String gridEmpty = '暂无内容';
   static const String noWorks = '暂无作品';
 
@@ -145,6 +164,7 @@ class Strings {
 
   // Detail SnackBars (interpolated)
   static String playFailed(Object e) => '播放失败: $e';
+  static const String playStarting = '正在启动播放…';
   static String operationFailed(Object e) => '操作失败: $e';
   static String markedAs(String label) => '已标记为$label';
   static String markFailed(Object e) => '标记失败: $e';
@@ -175,6 +195,28 @@ class Strings {
   static String batchDownloadSummary(int ok, int skipped, int failed) =>
       '下载完成：成功 $ok，已存在 $skipped，失败 $failed';
 
+  // Download queue / management
+  static const String downloadManagement = '下载管理';
+  static const String downloadQueued = '已加入下载队列';
+  static String downloadQueuedCount(int n) => '已加入下载队列（$n 项）';
+  static const String downloadQueueEmpty = '暂无下载任务';
+  static const String downloadJobQueued = '排队中';
+  static const String downloadJobRunning = '下载中';
+  static const String downloadJobSuccess = '已完成';
+  static const String downloadJobExists = '已存在';
+  static const String downloadJobFailed = '失败';
+  static const String downloadJobCancelled = '已取消';
+  static const String downloadJobCancel = '取消';
+  static const String downloadJobRetry = '重试';
+  static const String downloadJobPlay = '播放';
+  static const String downloadClearFinished = '清除已完成';
+  static const String downloadViewQueue = '查看';
+  static const String downloadRootLabel = '下载目录';
+  static const String openFolder = '打开文件夹';
+  static const String openFolderFailed = '无法打开文件夹';
+  static const String downloadCompletedPlaying = '下载完成，开始播放';
+  static String downloadSavedTo(String path) => '已保存到 $path';
+
   // Subtitle preview
   static const String subtitlePreviewTitle = '字幕预览';
   static const String subtitlePreviewLoading = '正在加载字幕...';
@@ -184,12 +226,23 @@ class Strings {
 
   // Drawer
   static const String home = '主页';
+
+  // 首页四宫格入口（推荐/搜索/本地/定时关闭）
+  static const String homeGridRecommend = '推荐';
+  static const String homeGridRecommendDesc = '为你推荐的声音';
+  static const String homeGridSearch = '搜索';
+  static const String homeGridSearchDesc = '查找作品与标签';
+  static const String homeGridLocal = '本地';
+  static const String homeGridLocalDesc = '已下载的缓存';
+  static const String homeGridSleepTimer = '定时关闭';
+  static const String homeGridSleepTimerDesc = '到点自动暂停';
   static const String favorites = '我的收藏';
   static const String settings = '设置';
   static const String drawerSectionContent = '内容';
   static const String drawerSectionDiscover = '发现';
   static const String drawerSectionSystem = '系统';
   static const String recentPlay = '最近播放';
+  static const String downloadManagementMenu = '下载管理';
   static const String tags = '标签';
   static const String circles = '社团';
   static const String voiceActors = '声优';
@@ -231,18 +284,18 @@ class Strings {
   static const String themeAutoDesc = '自动切换深浅色模式';
 
   // About section
-  static const String aboutAppName = 'Xuro';
+  static const String aboutAppName = 'AsmrAiPlayer';
   static const String aboutAppDescription =
-      'Xuro 是一个第三方 ASMR.ONE 客户端，支持后台播放、字幕/悬浮歌词、播放列表与缓存。基于 CC BY-NC-SA 协议开源。';
+      'AsmrAiPlayer（AAP）是一个第三方 ASMR.ONE 客户端，支持后台播放、字幕/悬浮歌词、播放列表与缓存。基于 CC BY-NC-SA 协议开源。';
   static const String versionLabel = '版本';
-  static const String aboutFooter = '© Xuro · 基于 CC BY-NC-SA 4.0 开源';
+  static const String aboutFooter = '© AsmrAiPlayer · 基于 CC BY-NC-SA 4.0 开源';
   static const String versionInfo = '版本信息';
   static const String openSourceLicenses = '开源许可';
   static const String feedback = '问题反馈';
   static const String sourceCode = '源代码';
   static const String cannotOpenLink = '无法打开链接';
-  static const String feedbackUrl = 'https://github.com/WuMe-sicx/Xuro/issues';
-  static const String repoUrl = 'https://github.com/WuMe-sicx/Xuro';
+  static const String feedbackUrl = 'https://github.com/pmsleepcheck/AsmrAiPlayer/issues';
+  static const String repoUrl = 'https://github.com/pmsleepcheck/AsmrAiPlayer';
   static const String originalRepo = '原作者仓库';
   static const String originalRepoUrl = 'https://github.com/asmroneapp/Yuro';
   static const String telegramChannel = 'Telegram 频道';
@@ -285,6 +338,13 @@ class Strings {
   static const String colorVariantMono = '黑';
   static const String colorVariantGreen = '绿';
   static const String colorVariantStill = '红';
+
+  // Settings — proxy
+  static const String proxy = '代理';
+  static const String proxyDesc = '开启后应用内网络请求走指定代理服务器';
+  static const String proxyAddress = '代理地址';
+  static const String proxyAddressHint = '格式：主机:端口，如 127.0.0.1:7890';
+  static const String proxyAddressInvalid = '地址格式无效，请输入 主机:端口';
 
   // Settings — floating lyric overlay
   static const String lyricOverlaySection = '悬浮歌词';

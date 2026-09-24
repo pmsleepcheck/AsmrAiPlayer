@@ -1,12 +1,12 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/core/theme/app_radius.dart';
-import 'package:xuro/core/theme/app_spacing.dart';
-import 'package:xuro/core/theme/app_text_styles.dart';
-import 'package:xuro/presentation/viewmodels/auth_viewmodel.dart';
-import 'package:xuro/presentation/widgets/auth/login_dialog.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/core/theme/app_radius.dart';
+import 'package:aaplay/core/theme/app_spacing.dart';
+import 'package:aaplay/core/theme/app_text_styles.dart';
+import 'package:aaplay/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:aaplay/presentation/widgets/auth/login_dialog.dart';
 
 class SidebarHeader extends StatefulWidget {
   const SidebarHeader({super.key});

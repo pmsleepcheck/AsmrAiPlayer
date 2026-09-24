@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:xuro/data/models/mark_status.dart';
+import 'package:aaplay/data/models/mark_status.dart';
 
 class MarkSelectionDialog extends StatelessWidget {
   final MarkStatus? currentStatus;

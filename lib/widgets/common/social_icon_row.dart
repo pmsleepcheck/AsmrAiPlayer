@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:xuro/core/theme/app_spacing.dart';
+import 'package:aaplay/core/theme/app_spacing.dart';
 
 /// 单个社交入口。
 class SocialAction {

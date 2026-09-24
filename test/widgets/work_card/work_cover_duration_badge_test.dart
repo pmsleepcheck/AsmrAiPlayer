@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xuro/widgets/work_card/components/work_cover_image.dart';
+import 'package:aaplay/widgets/work_card/components/work_cover_image.dart';
 
 /// D4：封面左下时长角标（对齐参考图）。验证存在性 + 格式 + 缺省不显示。
 Widget _host(Widget child) =>

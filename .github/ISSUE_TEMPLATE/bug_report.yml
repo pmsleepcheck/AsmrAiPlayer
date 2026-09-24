@@ -1,5 +1,5 @@
 name: "🐛 Bug 反馈"
-description: "提交一个 Bug，帮助我们改进 Xuro"
+description: "提交一个 Bug，帮助我们改进 AsmrAiPlayer"
 title: "[Bug] "
 labels: ["bug"]
 body:
@@ -11,7 +11,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: Xuro 版本号
+      label: AsmrAiPlayer 版本号
       description: "可在 设置 > 关于 中查看"
       placeholder: "例如：v0.1.3"
     validations:
@@ -120,5 +120,5 @@ body:
       options:
         - label: 我已搜索过现有 Issues，确认没有重复提交
           required: true
-        - label: 我使用的是最新版本的 Xuro
+        - label: 我使用的是最新版本的 AsmrAiPlayer
           required: false

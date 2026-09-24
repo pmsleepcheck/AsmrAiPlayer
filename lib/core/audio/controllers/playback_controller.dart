@@ -1,4 +1,4 @@
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/utils/logger.dart';
 import 'package:just_audio/just_audio.dart';
 import '../models/playback_context.dart';
 import '../state/playback_state_manager.dart';
@@ -7,8 +7,8 @@ import '../utils/audio_error_handler.dart';
 import '../events/playback_event_hub.dart';
 import '../events/playback_event.dart';
 import '../models/play_mode.dart';
-import 'package:xuro/data/models/files/child.dart';
-import 'package:xuro/data/models/works/work.dart';
+import 'package:aaplay/data/models/files/child.dart';
+import 'package:aaplay/data/models/works/work.dart';
 
 class PlaybackController {
   final AudioPlayer _player;
@@ -86,8 +86,26 @@ class PlaybackController {
     }
   }
 
+  // 串行化 setPlaybackContext：首帧后的 restorePlaybackState 与用户点播
+  // 会并发调用 just_audio 的 stop/setAudioSource——交错可导致平台侧死锁/
+  // 永久挂起（表现为 playWithContext 15s 超时）。同链排队后前一个结束
+  // （成功或失败）才开下一个；失败只进日志，不卡住链尾。
+  Future<void> _setContextChain = Future<void>.value();
+
   // 播放上下文设置
   Future<void> setPlaybackContext(PlaybackContext originalContext,
+      {Duration? initialPosition}) {
+    final run = _setContextChain.then((_) => _setPlaybackContext(
+          originalContext,
+          initialPosition: initialPosition,
+        ));
+    _setContextChain = run.then((_) {}, onError: (Object e, StackTrace s) {
+      AppLogger.warning('setPlaybackContext 链内失败（不阻塞后续）: $e');
+    });
+    return run;
+  }
+
+  Future<void> _setPlaybackContext(PlaybackContext originalContext,
       {Duration? initialPosition}) async {
     try {
       AppLogger.debug(

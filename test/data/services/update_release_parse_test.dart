@@ -1,14 +1,14 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xuro/data/models/update_info.dart';
-import 'package:xuro/data/services/exceptions/update_exception.dart';
+import 'package:aaplay/data/models/update_info.dart';
+import 'package:aaplay/data/services/exceptions/update_exception.dart';
 
 void main() {
   group('UpdateInfo.fromReleaseJson 正常解析', () {
     test('取出 tag/version/body/html_url 及首个 .apk 直链', () {
       final info = UpdateInfo.fromReleaseJson({
         'tag_name': 'v1.2.3',
-        'html_url': 'https://github.com/WuMe-sicx/Xuro/releases/tag/v1.2.3',
+        'html_url': 'https://github.com/pmsleepcheck/AsmrAiPlayer/releases/tag/v1.2.3',
         'body': '  更新内容  ',
         'published_at': '2026-05-15T00:00:00Z',
         'assets': [
@@ -31,7 +31,7 @@ void main() {
       expect(info.version, '1.2.3');
       expect(info.releaseNotes, '更新内容');
       expect(info.htmlUrl,
-          'https://github.com/WuMe-sicx/Xuro/releases/tag/v1.2.3');
+          'https://github.com/pmsleepcheck/AsmrAiPlayer/releases/tag/v1.2.3');
       expect(info.apkDownloadUrl, 'https://example.com/app-release.apk',
           reason: '应取首个 .apk，跳过 .aab');
       expect(info.publishedAt, '2026-05-15T00:00:00Z');
@@ -94,7 +94,7 @@ void main() {
 
   group('UpdateException.fromDioException 分类', () {
     DioException dio(DioExceptionType type, {int? status}) {
-      final ro = RequestOptions(path: '/repos/WuMe-sicx/Xuro/releases');
+      final ro = RequestOptions(path: '/repos/pmsleepcheck/AsmrAiPlayer/releases');
       return DioException(
         requestOptions: ro,
         type: type,

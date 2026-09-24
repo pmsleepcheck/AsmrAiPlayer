@@ -4,8 +4,8 @@
 /// @author  Elvis Juan (thanhtran0606en@gmail.com)
 /// @created 2026-08-13
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/widgets/home/home_greeting.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/widgets/home/home_greeting.dart';
 
 void main() {
   group('四个时段边界', () {

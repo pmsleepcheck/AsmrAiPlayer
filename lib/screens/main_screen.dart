@@ -1,19 +1,21 @@
-import 'package:xuro/core/theme/app_animations.dart';
-import 'package:xuro/screens/contents/favorites_content.dart';
+import 'package:aaplay/core/theme/app_animations.dart';
+import 'package:aaplay/screens/contents/favorites_content.dart';
 import 'package:flutter/material.dart';
-import 'package:xuro/widgets/mini_player/mini_player.dart';
-import 'package:xuro/widgets/sidebar/sidebar_menu.dart';
-import 'package:xuro/screens/contents/home_content.dart';
-import 'package:xuro/screens/contents/recommend_content.dart';
-import 'package:xuro/screens/contents/popular_content.dart';
-import 'package:xuro/screens/search_screen.dart';
+import 'package:aaplay/widgets/mini_player/mini_player.dart';
+import 'package:aaplay/widgets/sidebar/sidebar_menu.dart';
+import 'package:aaplay/screens/contents/home_content.dart';
+import 'package:aaplay/screens/contents/recommend_content.dart';
+import 'package:aaplay/screens/contents/popular_content.dart';
+import 'package:aaplay/screens/contents/local_cache_content.dart';
+import 'package:aaplay/screens/search_screen.dart';
 import 'package:provider/provider.dart';
-import 'package:xuro/presentation/viewmodels/home_viewmodel.dart';
-import 'package:xuro/presentation/viewmodels/popular_viewmodel.dart';
-import 'package:xuro/presentation/viewmodels/recommend_viewmodel.dart';
-import 'package:xuro/presentation/viewmodels/auth_viewmodel.dart';
-import 'package:xuro/presentation/viewmodels/favorites_viewmodel.dart';
-import 'package:xuro/common/constants/strings.dart';
+import 'package:aaplay/presentation/viewmodels/home_viewmodel.dart';
+import 'package:aaplay/presentation/viewmodels/popular_viewmodel.dart';
+import 'package:aaplay/presentation/viewmodels/recommend_viewmodel.dart';
+import 'package:aaplay/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:aaplay/presentation/viewmodels/favorites_viewmodel.dart';
+import 'package:aaplay/presentation/viewmodels/local_cache_viewmodel.dart';
+import 'package:aaplay/common/constants/strings.dart';
 
 /// MainScreen 是应用的主界面，负责管理底部导航栏和对应的内容页面。
 /// 它采用了集中式的状态管理架构，所有子页面的 ViewModel 都在这里初始化和提供。
@@ -39,23 +41,20 @@ class _MainScreenState extends State<MainScreen> {
   late final PopularViewModel _popularViewModel;
   late final RecommendViewModel _recommendViewModel;
   late final FavoritesViewModel _favoritesViewModel;
+  late final LocalCacheViewModel _localCacheViewModel;
 
   final _titles = const [
     Strings.tabFavorites,
     Strings.home,
     Strings.homeTitleRecommend,
     Strings.homeTitlePopular,
+    Strings.tabLocalCache,
   ];
 
   // 页面内容列表
   // 注意：这些页面不应该创建自己的 ViewModel 实例
   // 而是应该通过 Provider.of 或 context.read 获取 MainScreen 提供的实例
-  final _pages = const [
-    FavoritesContent(),
-    HomeContent(),
-    RecommendContent(),
-    PopularContent(),
-  ];
+  // （HomeContent 需要 Tab 切换回调，在 build 里构造。）
 
   @override
   void initState() {
@@ -70,6 +69,7 @@ class _MainScreenState extends State<MainScreen> {
     _favoritesViewModel = FavoritesViewModel(
       Provider.of<AuthViewModel>(context, listen: false),
     );
+    _localCacheViewModel = LocalCacheViewModel();
   }
 
   void _onPageChanged(int index) {
@@ -94,6 +94,7 @@ class _MainScreenState extends State<MainScreen> {
     _popularViewModel.dispose();
     _recommendViewModel.dispose();
     _favoritesViewModel.dispose();
+    _localCacheViewModel.dispose();
     super.dispose();
   }
 
@@ -107,6 +108,7 @@ class _MainScreenState extends State<MainScreen> {
         ChangeNotifierProvider.value(value: _popularViewModel),
         ChangeNotifierProvider.value(value: _recommendViewModel),
         ChangeNotifierProvider.value(value: _favoritesViewModel),
+        ChangeNotifierProvider.value(value: _localCacheViewModel),
       ],
       child: Builder(
         builder: (context) {
@@ -119,9 +121,12 @@ class _MainScreenState extends State<MainScreen> {
                   : _currentIndex == 2
                       ? context.select<RecommendViewModel, int?>(
                           (vm) => vm.pagination?.totalCount)
-                      : _currentIndex == 3
-                          ? context.select<PopularViewModel, int?>(
-                              (vm) => vm.pagination?.totalCount)
+                  : _currentIndex == 3
+                      ? context.select<PopularViewModel, int?>(
+                          (vm) => vm.pagination?.totalCount)
+                      : _currentIndex == 4
+                          ? context.select<LocalCacheViewModel, int?>(
+                              (vm) => vm.visibleCount)
                           : null;
 
           // 构建标题文本
@@ -133,18 +138,22 @@ class _MainScreenState extends State<MainScreen> {
             appBar: AppBar(
               title: Text(title),
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.filter_list),
-                  onPressed: () {
-                    if (_currentIndex == 1) {
-                      context.read<HomeViewModel>().toggleFilterPanel();
-                    } else if (_currentIndex == 2) {
-                      context.read<RecommendViewModel>().toggleFilterPanel();
-                    } else if (_currentIndex == 3) {
-                      context.read<PopularViewModel>().toggleFilterPanel();
-                    }
-                  },
-                ),
+                // 筛选面板只存在于推荐（2）/热门（3）；主页已改为入口四宫格、
+                // 本地缓存（4）无面板——这两处隐藏筛选入口。
+                if (_currentIndex == 2 || _currentIndex == 3)
+                  IconButton(
+                    icon: const Icon(Icons.filter_list),
+                    onPressed: () {
+                      if (_currentIndex == 1) {
+                        context.read<HomeViewModel>().toggleFilterPanel();
+                      } else if (_currentIndex == 2) {
+                        context.read<RecommendViewModel>()
+                            .toggleFilterPanel();
+                      } else if (_currentIndex == 3) {
+                        context.read<PopularViewModel>().toggleFilterPanel();
+                      }
+                    },
+                  ),
                 IconButton(
                   icon: const Icon(Icons.search),
                   onPressed: () {
@@ -163,7 +172,13 @@ class _MainScreenState extends State<MainScreen> {
               controller: _pageController,
               physics: const ClampingScrollPhysics(),
               onPageChanged: _onPageChanged,
-              children: _pages,
+              children: [
+                const FavoritesContent(),
+                HomeContent(onNavigateToTab: _onTabTapped),
+                const RecommendContent(),
+                const PopularContent(),
+                const LocalCacheContent(),
+              ],
             ),
             bottomNavigationBar: Column(
               mainAxisSize: MainAxisSize.min,
@@ -196,6 +211,11 @@ class _MainScreenState extends State<MainScreen> {
                       icon: Icon(Icons.trending_up_outlined),
                       selectedIcon: Icon(Icons.trending_up),
                       label: Strings.navPopular,
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.download_outlined),
+                      selectedIcon: Icon(Icons.download),
+                      label: Strings.tabLocalCache,
                     ),
                   ],
                 ),

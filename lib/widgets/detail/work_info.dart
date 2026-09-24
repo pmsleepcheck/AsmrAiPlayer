@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:xuro/data/models/works/work.dart';
-import 'package:xuro/data/models/works/tag.dart';
-import 'package:xuro/data/models/works/work_info.dart' as model;
-import 'package:xuro/widgets/common/tag_chip.dart';
-import 'package:xuro/widgets/detail/work_info_header.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/data/models/works/work.dart';
+import 'package:aaplay/data/models/works/tag.dart';
+import 'package:aaplay/data/models/works/work_info.dart' as model;
+import 'package:aaplay/widgets/common/tag_chip.dart';
+import 'package:aaplay/widgets/detail/work_info_header.dart';
+import 'package:aaplay/utils/logger.dart';
 
 class WorkInfo extends StatelessWidget {
   final Work work;

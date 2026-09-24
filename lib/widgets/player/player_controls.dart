@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/core/theme/app_radius.dart';
-import 'package:xuro/core/theme/app_spacing.dart';
-import 'package:xuro/presentation/viewmodels/player_viewmodel.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/core/theme/app_radius.dart';
+import 'package:aaplay/core/theme/app_spacing.dart';
+import 'package:aaplay/presentation/viewmodels/player_viewmodel.dart';
 
 /// 播放器控制行。主按钮改为 Modernist 的 72x72 accent 实底零圆角方块
 /// （取代旧的圆形），上一曲/下一曲图标放大到 30px。快进/快退 10 秒是

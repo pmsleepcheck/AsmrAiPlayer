@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:xuro/core/theme/app_spacing.dart';
-import 'package:xuro/core/theme/app_text_styles.dart';
+import 'package:aaplay/core/theme/app_spacing.dart';
+import 'package:aaplay/core/theme/app_text_styles.dart';
 
 /// 侧边栏分组：Modernist 扁平列表，层级由分隔线而非卡片/圆角表达。
 /// 分区头改走 accent（`colorScheme.primary`），与 `SettingsGroup` 已落地的

@@ -6,9 +6,9 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:xuro/core/audio/utils/playlist_builder.dart';
-import 'package:xuro/core/download/download_service.dart';
-import 'package:xuro/data/models/files/child.dart';
+import 'package:aaplay/core/audio/utils/playlist_builder.dart';
+import 'package:aaplay/core/download/download_service.dart';
+import 'package:aaplay/data/models/files/child.dart';
 
 void main() {
   group('PlaylistBuilder.remapIndex (pure, no IO)', () {
@@ -70,7 +70,8 @@ void main() {
       for (var i = 0; i < sources.length; i++) {
         final source = sources[i] as UriAudioSource;
         expect(source.uri.scheme, 'file');
-        expect(source.uri.toFilePath(), '/local/${files[i].title}');
+        // Uri.toFilePath() 在 Windows 上会把 / 换成 \，与期望字符串对齐。
+        expect(source.uri, Uri.file('/local/${files[i].title}'));
       }
     });
 
@@ -93,12 +94,32 @@ void main() {
       );
 
       expect(originalIndices, [0, 1]);
-      expect((sources[0] as UriAudioSource).uri.toFilePath(), '/local/hit.mp3');
+      expect((sources[0] as UriAudioSource).uri, Uri.file('/local/hit.mp3'));
       // noTitle 没走本地命中，只能落到 AudioCacheManager.createAudioSource
       // 的降级分支（真实环境里会做磁盘 IO，这里平台通道不可用会抛出，
       // createAudioSource 自身兜底为 ProgressiveAudioSource 指回原始 URL）。
       final fallback = sources[1] as UriAudioSource;
       expect(fallback.uri.toString(), noTitle.mediaDownloadUrl);
+    });
+
+    test('legacy fileKey in the local map still hits (candidateKeys fallback)',
+        () async {
+      // 历史预签名 URL 行：DB 里存的是 legacyFileKey，新 fileKey 查表会 miss，
+      // 于是回退到过期网络 URL → 点播放无反馈。candidateKeys 必须兜住。
+      const url = 'https://cdn.example.com/a.mp3?X-Amz-Signature=aaa';
+      final f = Child(title: 'a.mp3', mediaDownloadUrl: url);
+      final legacy = DownloadService.legacyFileKey(f);
+      expect(DownloadService.fileKey(f), isNot(legacy));
+
+      final (sources, originalIndices) = await PlaylistBuilder.buildAudioSources(
+        [f],
+        workId: 'work-1',
+        resolveLocalPaths: (_) async => {legacy: '/local/legacy.mp3'},
+      );
+
+      expect(originalIndices, [0]);
+      expect((sources[0] as UriAudioSource).uri,
+          Uri.file('/local/legacy.mp3'));
     });
 
     test('no workId: resolver is never invoked', () async {
@@ -112,6 +133,29 @@ void main() {
         },
       );
       expect(callCount, 0);
+    });
+
+    test('file:// mediaDownloadUrl short-circuits to local Uri (synthetic '
+        'local-cache child has no hash, candidateKeys cannot hit DB)', () async {
+      // 本地缓存无快照时用 DownloadEntry.filePath 合成 Child：
+      // mediaDownloadUrl = Uri.file(path)，必须按 scheme 建源，
+      // 不能掉进网络 createAudioSource（那会变成外部/挂起）。
+      const path = r'C:\Users\test\Documents\downloads\1\k\a.mp3';
+      final f = Child(
+        title: 'a.mp3',
+        mediaDownloadUrl: Uri.file(path).toString(),
+        size: 10,
+      );
+      final (sources, indices) = await PlaylistBuilder.buildAudioSources(
+        [f],
+        workId: '1',
+        // 即使查表全部 miss，file:// 分支也不应走到网络。
+        resolveLocalPaths: (_) async => const {},
+      );
+      expect(indices, [0]);
+      final uri = (sources[0] as UriAudioSource).uri;
+      expect(uri.scheme, 'file');
+      expect(uri.toFilePath(), path);
     });
   });
 }

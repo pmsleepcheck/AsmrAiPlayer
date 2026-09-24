@@ -8,13 +8,13 @@
 /// @created 2026-08-13
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:xuro/core/image/cache/image_cache_manager.dart';
-import 'package:xuro/core/theme/app_spacing.dart';
-import 'package:xuro/core/theme/app_text_styles.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/presentation/viewmodels/player_viewmodel.dart';
-import 'package:xuro/screens/player_screen.dart';
-import 'package:xuro/widgets/common/skeleton_pulse.dart';
+import 'package:aaplay/core/image/cache/image_cache_manager.dart';
+import 'package:aaplay/core/theme/app_spacing.dart';
+import 'package:aaplay/core/theme/app_text_styles.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/presentation/viewmodels/player_viewmodel.dart';
+import 'package:aaplay/screens/player_screen.dart';
+import 'package:aaplay/widgets/common/skeleton_pulse.dart';
 
 class ContinuePlayingCard extends StatelessWidget {
   const ContinuePlayingCard({super.key, required this.viewModel});

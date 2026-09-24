@@ -1,8 +1,8 @@
-import 'package:xuro/core/audio/cache/audio_cache_manager.dart';
-import 'package:xuro/core/subtitle/cache/subtitle_cache_manager.dart';
-import 'package:xuro/core/image/cache/image_cache_manager.dart';
-import 'package:xuro/core/cache/recommendation_cache_manager.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/core/audio/cache/audio_cache_manager.dart';
+import 'package:aaplay/core/subtitle/cache/subtitle_cache_manager.dart';
+import 'package:aaplay/core/image/cache/image_cache_manager.dart';
+import 'package:aaplay/core/cache/recommendation_cache_manager.dart';
+import 'package:aaplay/utils/logger.dart';
 
 /// 统一缓存协调器
 /// 提供单一 API 查询、清理和清除所有应用缓存

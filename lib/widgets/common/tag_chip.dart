@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:xuro/core/theme/app_radius.dart';
+import 'package:aaplay/core/theme/app_radius.dart';
 
 /// 标签的视觉基调。语义（社团/声优/字幕…）由调用方决定，颜色映射收在这里——
 /// 此前调用方各自塞 Colors.orange/green/blue 字面色，三配色切换对详情页

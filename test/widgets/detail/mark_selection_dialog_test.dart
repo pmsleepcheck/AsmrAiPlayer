@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xuro/core/settings/app_settings_service.dart';
-import 'package:xuro/core/theme/app_colors.dart';
-import 'package:xuro/data/models/mark_status.dart';
-import 'package:xuro/widgets/detail/mark_selection_dialog.dart';
+import 'package:aaplay/core/settings/app_settings_service.dart';
+import 'package:aaplay/core/theme/app_colors.dart';
+import 'package:aaplay/data/models/mark_status.dart';
+import 'package:aaplay/widgets/detail/mark_selection_dialog.dart';
 
 /// 回归 `fillColor.resolveWith` 手搓灰色的删除：选中态 radio 必须严格等于
 /// colorScheme.primary，否则三配色轮换在这里失效（本文件唯一的可见破口）。

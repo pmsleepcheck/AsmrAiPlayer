@@ -1,5 +1,5 @@
-import 'package:xuro/core/audio/models/subtitle.dart';
-import 'package:xuro/core/subtitle/parsers/subtitle_parser.dart';
+import 'package:aaplay/core/audio/models/subtitle.dart';
+import 'package:aaplay/core/subtitle/parsers/subtitle_parser.dart';
 
 class VttParser extends BaseSubtitleParser {
   static final _vttHeaderRegex = RegExp(r'^WEBVTT');

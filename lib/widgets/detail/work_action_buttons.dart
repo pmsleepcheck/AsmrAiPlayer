@@ -1,6 +1,6 @@
-import 'package:xuro/data/models/mark_status.dart';
-import 'package:xuro/core/theme/app_radius.dart';
-import 'package:xuro/common/constants/strings.dart';
+import 'package:aaplay/data/models/mark_status.dart';
+import 'package:aaplay/core/theme/app_radius.dart';
+import 'package:aaplay/common/constants/strings.dart';
 import 'package:flutter/material.dart';
 
 class WorkActionButtons extends StatelessWidget {

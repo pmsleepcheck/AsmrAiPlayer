@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:xuro/core/theme/app_radius.dart';
-import 'package:xuro/widgets/common/skeleton_pulse.dart';
+import 'package:aaplay/core/theme/app_radius.dart';
+import 'package:aaplay/widgets/common/skeleton_pulse.dart';
 
 class WorkFilesSkeleton extends StatelessWidget {
   const WorkFilesSkeleton({super.key});

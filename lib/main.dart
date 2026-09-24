@@ -1,21 +1,28 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/core/audio/cache/audio_cache_manager.dart';
-import 'package:xuro/core/cache/cache_lifecycle_manager.dart';
-import 'package:xuro/core/platform/background_play_controller.dart';
-import 'package:xuro/core/settings/app_settings_service.dart';
-import 'package:xuro/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:just_audio_media_kit/just_audio_media_kit.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/core/audio/cache/audio_cache_manager.dart';
+import 'package:aaplay/core/cache/cache_lifecycle_manager.dart';
+import 'package:aaplay/core/platform/background_play_controller.dart';
+import 'package:aaplay/core/settings/app_settings_service.dart';
+import 'package:aaplay/presentation/viewmodels/auth_viewmodel.dart';
 import 'core/di/service_locator.dart';
 import 'package:provider/provider.dart';
 import 'screens/main_screen.dart';
-import 'package:xuro/core/theme/app_theme.dart';
-import 'package:xuro/core/theme/theme_controller.dart';
+import 'package:aaplay/core/theme/app_theme.dart';
+import 'package:aaplay/core/theme/theme_controller.dart';
 import 'screens/search_screen.dart';
 
 void main() async {
   final startupStopwatch = kDebugMode ? (Stopwatch()..start()) : null;
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Windows/Linux 没有 just_audio 原生实现（包内无 windows/，方法通道
+  // 无 handler → 播放必挂）。media_kit 后端必须在任何 AudioPlayer()
+  // 构造之前注册；Android/iOS/macOS 走原生（ensureInitialized 默认
+  // windows/linux=true、移动端 false，自动门控）。
+  JustAudioMediaKit.ensureInitialized();
 
   // 内存图片缓存预算上限（配合各封面组件的 memCacheWidth 降采样解码，
   // 避免高分辨率封面把缓存撑爆）。

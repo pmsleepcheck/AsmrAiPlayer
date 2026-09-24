@@ -3,7 +3,7 @@
 ///
 /// @author  Elvis Juan (thanhtran0606en@gmail.com)
 /// @created 2026-08-13
-import 'package:xuro/common/constants/strings.dart';
+import 'package:aaplay/common/constants/strings.dart';
 
 /// 一天中的四个时段——早（5-11 点）/ 午（11-18 点）/ 晚（18-24 点）/
 /// 深夜（0-5 点），边界为业务约定值，非接口/协议给定。

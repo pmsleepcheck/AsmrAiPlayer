@@ -1,5 +1,5 @@
-name: xuro
-description: "Xuro - ASMR.ONE third party client app."
+name: aaplay
+description: "AsmrAiPlayer - ASMR.ONE third party client app."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -38,6 +38,7 @@ dependencies:
   cupertino_icons: ^1.0.2
   provider: ^6.1.1
   dio: ^5.4.0
+  http: ^1.6.0
   cached_network_image: ^3.3.0
   logger: ^2.5.0
   just_audio: ^0.9.36
@@ -57,9 +58,15 @@ dependencies:
   url_launcher: ^6.3.0
   package_info_plus: ^8.0.0
   sqflite: ^2.3.0
+  # Windows/Linux 无 sqflite 原生实现，走 FFI + 打包 sqlite3.dll，
+  # 否则 openDatabase 必抛（下载/字幕 DB 全挂，被收敛为 ioError）。
+  sqflite_common_ffi: ^2.3.4
+  sqlite3_flutter_libs: ^0.5.29
   file_picker: ^8.0.0
   open_filex: ^4.5.0
   path: ^1.9.0
+  just_audio_media_kit: ^2.1.0
+  media_kit_libs_windows_audio: ^1.0.9
 
 dev_dependencies:
   flutter_test:

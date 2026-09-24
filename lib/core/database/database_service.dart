@@ -1,10 +1,10 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/utils/logger.dart';
 
 class DatabaseService {
   static const _databaseName = 'xuro.db';
-  static const _databaseVersion = 2;
+  static const _databaseVersion = 3;
 
   // schema 定义集中一处，`_onCreate`（全新安装拿到最新完整 schema）与
   // `_migrations`（旧库逐版本升级）共用同一字符串，避免两条路径漂移。
@@ -36,6 +36,16 @@ class DatabaseService {
         size        INTEGER NOT NULL DEFAULT 0,
         created_at  INTEGER NOT NULL,
         UNIQUE(work_id, file_key)
+      )
+    ''';
+
+  // 详情页快照（入队下载时持久化 Work + 整棵 Files 树）：队列自动播放、
+  // 接口失败离线回退、管理页 playNow 都可在无 VM/无网络时重建 PlaybackContext。
+  static const _createWorkSnapshotsTable = '''
+      CREATE TABLE work_snapshots (
+        work_id    TEXT PRIMARY KEY,
+        payload    TEXT    NOT NULL,
+        updated_at INTEGER NOT NULL
       )
     ''';
 
@@ -75,6 +85,7 @@ class DatabaseService {
   Future<void> _onCreate(Database db, int version) async {
     await db.execute(_createUserSubtitlesTable);
     await db.execute(_createDownloadsTable);
+    await db.execute(_createWorkSnapshotsTable);
     AppLogger.debug('数据库表创建完成 (v$version)');
   }
 
@@ -88,6 +99,10 @@ class DatabaseService {
     //    全新安装由 _onCreate 直接建好，不会进 _onUpgrade。
     2: (db) async {
       await db.execute(_createDownloadsTable);
+    },
+    // 3: 新增 work_snapshots（详情页快照）。
+    3: (db) async {
+      await db.execute(_createWorkSnapshotsTable);
     },
   };
 

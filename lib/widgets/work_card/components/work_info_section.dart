@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:xuro/core/theme/app_spacing.dart';
-import 'package:xuro/data/models/works/work.dart';
+import 'package:aaplay/core/theme/app_spacing.dart';
+import 'package:aaplay/data/models/works/work.dart';
 import 'work_title.dart';
 import 'work_tags_panel.dart';
 import 'work_footer.dart';

@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:get_it/get_it.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/core/theme/theme_controller.dart';
-import 'package:xuro/core/platform/wakelock_controller.dart';
-import 'package:xuro/core/platform/sleep_timer_controller.dart';
-import 'package:xuro/core/platform/lyric_overlay_manager.dart';
-import 'package:xuro/screens/settings/sleep_timer_dialog.dart';
-import 'package:xuro/core/settings/app_settings_service.dart';
-import 'package:xuro/screens/settings/cache_manager_screen.dart';
-import 'package:xuro/screens/settings/audio_format_order_dialog.dart';
-import 'package:xuro/core/theme/app_colors.dart';
-import 'package:xuro/core/theme/app_spacing.dart';
-import 'package:xuro/screens/settings/widgets/settings_group.dart';
-import 'package:xuro/screens/settings/widgets/settings_tile.dart';
-import 'package:xuro/screens/settings/widgets/settings_theme.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/core/theme/theme_controller.dart';
+import 'package:aaplay/core/platform/wakelock_controller.dart';
+import 'package:aaplay/core/platform/sleep_timer_controller.dart';
+import 'package:aaplay/core/platform/lyric_overlay_manager.dart';
+import 'package:aaplay/screens/settings/sleep_timer_dialog.dart';
+import 'package:aaplay/core/settings/app_settings_service.dart';
+import 'package:aaplay/screens/settings/cache_manager_screen.dart';
+import 'package:aaplay/screens/settings/audio_format_order_dialog.dart';
+import 'package:aaplay/screens/settings/proxy_address_dialog.dart';
+import 'package:aaplay/core/theme/app_colors.dart';
+import 'package:aaplay/core/theme/app_spacing.dart';
+import 'package:aaplay/screens/settings/widgets/settings_group.dart';
+import 'package:aaplay/screens/settings/widgets/settings_tile.dart';
+import 'package:aaplay/screens/settings/widgets/settings_theme.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -143,15 +144,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
         listenable: settings,
         builder: (context, _) => SettingsGroup(
           header: Strings.network,
-          children: AppSettingsService.serverOptions.entries.map((entry) {
-            return SettingsTile.selection(
-              title: entry.value,
-              subtitle: entry.key,
-              leading: Icons.lan_outlined,
-              selected: settings.serverUrl == entry.key,
-              onTap: () => settings.setServerUrl(entry.key),
-            );
-          }).toList(),
+          children: [
+            ...AppSettingsService.serverOptions.entries.map((entry) {
+              return SettingsTile.selection(
+                title: entry.value,
+                subtitle: entry.key,
+                leading: Icons.lan_outlined,
+                selected: settings.serverUrl == entry.key,
+                onTap: () => settings.setServerUrl(entry.key),
+              );
+            }),
+            SettingsTile.toggle(
+              title: Strings.proxy,
+              subtitle: Strings.proxyDesc,
+              leading: Icons.travel_explore_outlined,
+              value: settings.proxyEnabled,
+              onChanged: (v) => settings.setProxyEnabled(v),
+            ),
+            if (settings.proxyEnabled)
+              SettingsTile.navigation(
+                title: Strings.proxyAddress,
+                leading: Icons.router_outlined,
+                value: settings.proxyUrl,
+                onTap: () => showDialog(
+                  context: context,
+                  builder: (_) => ProxyAddressDialog(settings: settings),
+                ),
+              ),
+          ],
         ),
       );
     });

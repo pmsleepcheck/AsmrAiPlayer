@@ -1,8 +1,9 @@
 import 'package:dio/dio.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/core/settings/app_settings_service.dart';
-import 'package:xuro/data/models/auth/auth_resp/auth_resp.dart';
-import 'package:xuro/data/services/exceptions/network_exception.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/core/settings/app_settings_service.dart';
+import 'package:aaplay/core/network/proxy_config.dart';
+import 'package:aaplay/data/models/auth/auth_resp/auth_resp.dart';
+import 'package:aaplay/data/services/exceptions/network_exception.dart';
 import '../../utils/logger.dart';
 
 /// Thrown when `/auth/reg` succeeded (account exists on the server) but the
@@ -30,6 +31,7 @@ class AuthService {
             sendTimeout: const Duration(seconds: 15),
           ),
         ) {
+    ProxyConfig.apply(_dio, settings);
     _settings.addListener(_onSettingsChanged);
   }
 

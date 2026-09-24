@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/data/services/exceptions/network_exception.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/data/services/exceptions/network_exception.dart';
 
 void main() {
   group('userMessageOf / isAuthErrorOf', () {

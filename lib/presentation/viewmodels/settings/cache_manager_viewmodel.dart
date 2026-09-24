@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
-import 'package:xuro/core/audio/cache/audio_cache_manager.dart';
-import 'package:xuro/data/services/exceptions/network_exception.dart';
-import 'package:xuro/utils/logger.dart';
-import 'package:xuro/core/subtitle/cache/subtitle_cache_manager.dart';
-import 'package:xuro/core/image/cache/image_cache_manager.dart';
-import 'package:xuro/core/cache/cache_coordinator.dart';
+import 'package:aaplay/core/audio/cache/audio_cache_manager.dart';
+import 'package:aaplay/data/services/exceptions/network_exception.dart';
+import 'package:aaplay/utils/logger.dart';
+import 'package:aaplay/core/subtitle/cache/subtitle_cache_manager.dart';
+import 'package:aaplay/core/image/cache/image_cache_manager.dart';
+import 'package:aaplay/core/cache/cache_coordinator.dart';
 
 class CacheManagerViewModel extends ChangeNotifier {
   bool _isLoading = false;

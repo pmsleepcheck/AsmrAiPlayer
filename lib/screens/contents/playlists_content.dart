@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:xuro/data/models/my_lists/my_playlists/playlist.dart';
-import 'package:xuro/screens/contents/playlists/playlists_list_view.dart';
-import 'package:xuro/screens/contents/playlists/playlist_works_view.dart';
+import 'package:aaplay/data/models/my_lists/my_playlists/playlist.dart';
+import 'package:aaplay/screens/contents/playlists/playlists_list_view.dart';
+import 'package:aaplay/screens/contents/playlists/playlist_works_view.dart';
 
 class PlaylistsContent extends StatefulWidget {
   const PlaylistsContent({super.key});

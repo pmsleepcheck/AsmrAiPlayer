@@ -1,10 +1,10 @@
-import 'package:xuro/core/audio/utils/audio_error_handler.dart';
-import 'package:xuro/data/models/works/work.dart';
-import 'package:xuro/data/models/files/files.dart';
-import 'package:xuro/data/models/files/child.dart';
-import 'package:xuro/utils/logger.dart';
-import 'package:xuro/core/audio/models/play_mode.dart';
-import 'package:xuro/core/audio/models/file_path.dart';
+import 'package:aaplay/core/audio/utils/audio_error_handler.dart';
+import 'package:aaplay/data/models/works/work.dart';
+import 'package:aaplay/data/models/files/files.dart';
+import 'package:aaplay/data/models/files/child.dart';
+import 'package:aaplay/utils/logger.dart';
+import 'package:aaplay/core/audio/models/play_mode.dart';
+import 'package:aaplay/core/audio/models/file_path.dart';
 
 class PlaybackContext {
   final Work work;
@@ -68,18 +68,29 @@ class PlaybackContext {
     );
   }
 
+  /// 同目录播放列表接受的音频扩展名（与 just_audio / app 支持格式一致）。
+  /// 历史上只放行 mp3/wav，导致 flac/m4a/opus/aac 等下完自动播放时
+  /// 构造出空播放列表 →「播放列表为空」。
+  static const Set<String> playlistAudioExtensions = {
+    'mp3',
+    'wav',
+    'flac',
+    'm4a',
+    'aac',
+    'ogg',
+    'opus',
+    'wma',
+    'mp4a',
+  };
+
   // 获取同级文件列表
   static List<Child> _getPlaylistFromSameDirectory(
       Child currentFile, Files files) {
-    // AppLogger.debug('开始获取播放列表...');
-    // AppLogger.debug('当前文件: ${currentFile.title}');
-    // AppLogger.debug('当前文件类型: ${currentFile.type}');
-
     // 获取当前文件的扩展名
-    final extension = currentFile.title?.split('.').last.toLowerCase();
-    // AppLogger.debug('当前文件扩展名: $extension');
+    final extension =
+        (currentFile.title ?? '').split('.').last.toLowerCase();
 
-    if (extension != 'mp3' && extension != 'wav') {
+    if (!playlistAudioExtensions.contains(extension)) {
       AppLogger.debug('不支持的文件类型: $extension');
       return [];
     }

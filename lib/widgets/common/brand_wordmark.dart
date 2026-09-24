@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 class BrandWordmark extends StatelessWidget {
   const BrandWordmark({
     super.key,
-    this.text = 'Xuro',
+    this.text = 'AsmrAiPlayer',
     this.fontSize = 22,
   });
 

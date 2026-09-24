@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/data/models/files/files.dart';
-import 'package:xuro/data/models/files/child.dart';
-import 'package:xuro/widgets/detail/work_folder_item.dart';
-import 'package:xuro/widgets/detail/work_file_item.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/data/models/files/files.dart';
+import 'package:aaplay/data/models/files/child.dart';
+import 'package:aaplay/widgets/detail/work_folder_item.dart';
+import 'package:aaplay/widgets/detail/work_file_item.dart';
 
 class WorkFilesList extends StatelessWidget {
   final Files files;
@@ -14,12 +14,20 @@ class WorkFilesList extends StatelessWidget {
   /// 参数为 null 代表整部作品，否则为该文件夹节点。
   final void Function(Child? folderNode)? onFolderDownload;
 
+  /// 已下载 fileKey 集合（详情页角标）；null = 不显示。
+  final Set<String>? downloadedFileKeys;
+
+  /// 已下载文件播放（角标旁播放按钮）；null = 不显示按钮。
+  final Function(Child file)? onFilePlay;
+
   const WorkFilesList({
     super.key,
     required this.files,
     this.onFileTap,
     this.onFileDownload,
     this.onFolderDownload,
+    this.downloadedFileKeys,
+    this.onFilePlay,
   });
 
   @override
@@ -63,12 +71,16 @@ class WorkFilesList extends StatelessWidget {
                           onFileTap: onFileTap,
                           onFileDownload: onFileDownload,
                           onFolderDownload: onFolderDownload,
+                          downloadedFileKeys: downloadedFileKeys,
+                          onFilePlay: onFilePlay,
                         )
                       : WorkFileItem(
                           file: child,
                           indentation: 0,
                           onFileTap: onFileTap,
                           onFileDownload: onFileDownload,
+                          downloadedFileKeys: downloadedFileKeys,
+                          onFilePlay: onFilePlay,
                         ))
                   .toList() ??
               [],

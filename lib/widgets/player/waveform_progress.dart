@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:xuro/core/theme/app_spacing.dart';
-import 'package:xuro/core/theme/app_text_styles.dart';
-import 'package:xuro/presentation/viewmodels/player_viewmodel.dart';
+import 'package:aaplay/core/theme/app_spacing.dart';
+import 'package:aaplay/core/theme/app_text_styles.dart';
+import 'package:aaplay/presentation/viewmodels/player_viewmodel.dart';
 
 /// 播放器进度条：2px 直条 + 12x12 实心方块滑块（Modernist 改版，取代旧的
 /// 装饰性波形条——零圆角/直线是这套设计语言的识别特征之一）。

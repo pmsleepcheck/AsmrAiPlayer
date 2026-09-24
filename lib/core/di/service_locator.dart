@@ -1,11 +1,12 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:xuro/data/services/interceptors/retry_interceptor.dart';
-import 'package:xuro/data/services/interceptors/auth_interceptor.dart';
-import 'package:xuro/core/platform/dummy_lyric_overlay_controller.dart';
+import 'package:aaplay/data/services/interceptors/retry_interceptor.dart';
+import 'package:aaplay/data/services/interceptors/auth_interceptor.dart';
+import 'package:aaplay/core/platform/dummy_lyric_overlay_controller.dart';
 import 'package:get_it/get_it.dart';
 import '../audio/i_audio_player_service.dart';
 import '../audio/audio_player_service.dart';
+import '../audio/models/playback_context.dart';
 import '../../data/services/api_service.dart';
 import '../../data/services/update_service.dart';
 import '../../presentation/viewmodels/player_viewmodel.dart';
@@ -26,20 +27,36 @@ import '../../core/platform/lyric_overlay_manager.dart';
 import '../../core/platform/wakelock_controller.dart';
 import '../../core/platform/sleep_timer_controller.dart';
 import '../../core/platform/background_play_controller.dart';
-import 'package:xuro/core/settings/app_settings_service.dart';
-import 'package:xuro/core/database/database_service.dart';
-import 'package:xuro/core/subtitle/storage/i_user_subtitle_repository.dart';
-import 'package:xuro/core/subtitle/storage/user_subtitle_repository.dart';
-import 'package:xuro/core/subtitle/import/i_file_picker_service.dart';
-import 'package:xuro/core/subtitle/import/file_picker_service.dart';
-import 'package:xuro/core/subtitle/subtitle_import_service.dart';
-import 'package:xuro/core/download/storage/i_download_repository.dart';
-import 'package:xuro/core/download/storage/download_repository.dart';
-import 'package:xuro/core/download/download_service.dart';
+import 'package:aaplay/core/settings/app_settings_service.dart';
+import 'package:aaplay/core/network/proxy_config.dart';
+import 'package:aaplay/core/database/database_service.dart';
+import 'package:aaplay/core/subtitle/storage/i_user_subtitle_repository.dart';
+import 'package:aaplay/core/subtitle/storage/user_subtitle_repository.dart';
+import 'package:aaplay/core/subtitle/import/i_file_picker_service.dart';
+import 'package:aaplay/core/subtitle/import/file_picker_service.dart';
+import 'package:aaplay/core/subtitle/subtitle_import_service.dart';
+import 'package:aaplay/core/download/storage/i_download_repository.dart';
+import 'package:aaplay/core/download/storage/download_repository.dart';
+import 'package:aaplay/core/download/storage/i_work_snapshot_repository.dart';
+import 'package:aaplay/core/download/storage/work_snapshot_repository.dart';
+import 'package:aaplay/core/download/download_service.dart';
+import 'package:aaplay/core/download/download_queue_service.dart';
+import 'package:aaplay/data/models/files/files.dart';
+import 'package:aaplay/data/models/works/work.dart';
+import 'package:aaplay/utils/logger.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 final getIt = GetIt.instance;
 
 Future<void> setupServiceLocator() async {
+  // Windows/Linux 无 sqflite 原生实现，openDatabase 必抛（下载/字幕 DB 全挂，
+  // 被 DownloadService 收敛为 ioError →「文件写入错误」）。切换到 FFI 工厂；
+  // 移动端/macOS 保持 sqflite 原生工厂，行为不变。必须在首次 DB 访问前执行。
+  if (Platform.isWindows || Platform.isLinux) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
+
   final prefs = await SharedPreferences.getInstance();
 
   // 注册 EventHub
@@ -71,8 +88,64 @@ Future<void> setupServiceLocator() async {
   getIt.registerLazySingleton<IDownloadRepository>(
     () => DownloadRepository(getIt<DatabaseService>()),
   );
+  // 详情页快照（入队时持久化 Work+Files；播放/离线回退用）。
+  getIt.registerLazySingleton<IWorkSnapshotRepository>(
+    () => WorkSnapshotRepository(getIt<DatabaseService>()),
+  );
   getIt.registerLazySingleton<DownloadService>(
-    () => DownloadService(repository: getIt<IDownloadRepository>()),
+    () => DownloadService(
+      repository: getIt<IDownloadRepository>(),
+      settings: getIt<AppSettingsService>(),
+    ),
+  );
+
+  // 后台下载队列（串行；入队后不依赖详情页存活）。
+  // 单曲音频 playOnComplete=true 时，用入队时快照的 work/files 直接
+  // playWithContext——不碰 DetailViewModel（可能已 dispose）；
+  // job 缺快照时经 loadSnapshot 从 work_snapshots 表回填。
+  getIt.registerLazySingleton<DownloadQueueService>(
+    () => DownloadQueueService(
+      download: ({
+        required workId,
+        required file,
+        onProgress,
+        cancelToken,
+      }) =>
+          getIt<DownloadService>().download(
+        workId: workId,
+        file: file,
+        onProgress: onProgress,
+        cancelToken: cancelToken,
+      ),
+      loadSnapshot: (workId) async {
+        final snap = await getIt<IWorkSnapshotRepository>().load(workId);
+        if (snap == null) return null;
+        return (work: snap.work, files: snap.files);
+      },
+      playJob: (job) async {
+        Work? work = job.work;
+        Files? files = job.files;
+        if (work == null || files == null) {
+          final snap = await getIt<IWorkSnapshotRepository>().load(job.workId);
+          work ??= snap?.work;
+          files ??= snap?.files;
+        }
+        if (work == null || files == null) {
+          AppLogger.warning('自动播放跳过（无 work/files 快照）: ${job.title}');
+          return;
+        }
+        final ctx = PlaybackContext(
+          work: work,
+          files: files,
+          currentFile: job.file,
+        );
+        if (ctx.playlist.isEmpty) {
+          AppLogger.warning('自动播放跳过（同目录无可播音频）: ${job.title}');
+          return;
+        }
+        await getIt<IAudioPlayerService>().playWithContext(ctx);
+      },
+    ),
   );
 
   // 注册 PlaybackStateRepository
@@ -107,9 +180,9 @@ Future<void> setupServiceLocator() async {
     () => ApiService(settings: getIt<AppSettingsService>()),
   );
 
-  // 检查更新服务（独立 GitHub Dio，与 asmr 节点解耦）
+  // 检查更新服务（独立 GitHub Dio，与 asmr 节点解耦；仅注入 settings 挂代理）
   getIt.registerLazySingleton<UpdateService>(
-    () => UpdateService(),
+    () => UpdateService(settings: getIt<AppSettingsService>()),
   );
 
   // 添加 AuthService 注册
@@ -164,6 +237,7 @@ void setupSubtitleServices() {
     final dio = Dio();
     dio.interceptors.add(RetryInterceptor(dio: dio));
     dio.interceptors.add(AuthInterceptor());
+    ProxyConfig.apply(dio, getIt<AppSettingsService>());
     return SubtitleLoader(dio: dio);
   });
   if (Platform.isAndroid) {

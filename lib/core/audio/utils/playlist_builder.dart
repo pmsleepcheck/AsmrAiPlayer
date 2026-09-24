@@ -1,9 +1,9 @@
 import 'package:get_it/get_it.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:xuro/core/download/download_service.dart';
-import 'package:xuro/data/models/files/child.dart';
-import 'package:xuro/core/audio/cache/audio_cache_manager.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/core/download/download_service.dart';
+import 'package:aaplay/data/models/files/child.dart';
+import 'package:aaplay/core/audio/cache/audio_cache_manager.dart';
+import 'package:aaplay/utils/logger.dart';
 
 class PlaylistBuilder {
   /// Build audio sources with per-item error handling.
@@ -42,11 +42,28 @@ class PlaylistBuilder {
     for (var i = 0; i < files.length; i++) {
       try {
         AudioSource? source;
+        // 本地缓存合成 context 用 `file://` 绝对路径（DownloadEntry.filePath）：
+        // 合成 Child 没有原 hash，candidateKeys 对不上 DB fileKey，必须先按
+        // scheme 短路，否则会掉进网络 createAudioSource → 外部/挂起。
+        final rawUrl = files[i].mediaDownloadUrl;
+        if (rawUrl != null && rawUrl.isNotEmpty) {
+          final parsed = Uri.tryParse(rawUrl);
+          if (parsed != null && parsed.isScheme('file')) {
+            source = AudioSource.uri(parsed);
+          }
+        }
         // title == null 的文件不可能已下载（download() 本身要求非空文件名
         // 才会落盘），跳过查表——避免命中 fileKey 在 hash/url/title 均缺时
         // 退化成的固定 key（md5('file')），与另一个同样退化的文件误撞。
-        if (files[i].title != null) {
-          final localPath = localPaths[DownloadService.fileKey(files[i])];
+        if (source == null && files[i].title != null) {
+          // 命中查表要走 candidateKeys（新/旧 fileKey 都试）：历史预签名
+          // URL 行的 DB key 可能是 legacyFileKey，只查 fileKey 会 miss，
+          // 已下载文件被错误地回退到过期网络 URL → 挂起无反馈。
+          String? localPath;
+          for (final key in DownloadService.candidateKeys(files[i])) {
+            localPath = localPaths[key];
+            if (localPath != null) break;
+          }
           if (localPath != null) {
             source = AudioSource.uri(Uri.file(localPath));
           }
@@ -114,11 +131,15 @@ class PlaylistBuilder {
       AppLogger.warning('原始索引 $initialIndex 不可用,使用替代索引 $remappedIndex');
     }
 
-    await player.setAudioSource(
-      playlist,
-      initialIndex: remappedIndex,
-      initialPosition: initialPosition,
-    );
+    // setAudioSource 会等平台侧加载完成：网络源/与并发 restore 交错时
+    // 可永久挂起。本地 file:// 应瞬时完成；超时统一交给上层阶段化错误。
+    await player
+        .setAudioSource(
+          playlist,
+          initialIndex: remappedIndex,
+          initialPosition: initialPosition,
+        )
+        .timeout(const Duration(seconds: 5));
 
     return loadedFiles;
   }

@@ -2,11 +2,11 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:xuro/common/constants/strings.dart';
-import 'package:xuro/data/models/update_info.dart';
-import 'package:xuro/data/services/exceptions/update_exception.dart';
-import 'package:xuro/data/services/update_service.dart';
-import 'package:xuro/utils/logger.dart';
+import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/data/models/update_info.dart';
+import 'package:aaplay/data/services/exceptions/update_exception.dart';
+import 'package:aaplay/data/services/update_service.dart';
+import 'package:aaplay/utils/logger.dart';
 
 class UpdateViewModel extends ChangeNotifier {
   final UpdateService _service;
