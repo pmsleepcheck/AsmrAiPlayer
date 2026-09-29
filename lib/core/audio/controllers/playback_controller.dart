@@ -122,8 +122,16 @@ class PlaybackController {
       }
 
       // 1. 先停止当前播放
+      // 平台侧可能正卡在上一次失败的加载里（mpv 打开坏文件 / 过期预签名
+      // URL），无超时的 stop() 会把 _setContextChain 永久堵死——之后每一次
+      // 点播都排队等这个永不返回的 future，表现为「重启前再也无法播放」。
+      // 限时且失败不中断：继续尝试装载新源，给平台侧一次自愈机会。
       AppLogger.debug('停止当前播放');
-      await _player.stop();
+      try {
+        await _player.stop().timeout(const Duration(seconds: 4));
+      } catch (e) {
+        AppLogger.warning('停止播放超时/失败（继续装载新播放源）: $e');
+      }
 
       // 2. 设置新的播放源
       AppLogger.debug('设置播放源: 初始位置=${initialPosition?.inMilliseconds}ms');

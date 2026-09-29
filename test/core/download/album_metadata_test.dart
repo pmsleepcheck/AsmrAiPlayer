@@ -230,4 +230,67 @@ void main() {
       expect(m['a.mp3'], 'k');
     });
   });
+
+  group('AlbumMetadataWriter translationVolume（翻译手动音量按作品记住）', () {
+    late Directory tmp;
+
+    setUp(() async {
+      tmp = await Directory.systemTemp.createTemp('aaplay_tvol_');
+    });
+
+    tearDown(() async {
+      try {
+        await tmp.delete(recursive: true);
+      } catch (_) {}
+    });
+
+    test('无 album.json → null；record 建最小 sidecar 并可读回', () async {
+      expect(await AlbumMetadataWriter.readTranslationVolume(tmp), isNull);
+      await AlbumMetadataWriter.recordTranslationVolume(tmp, volume: 0.85);
+      expect(await AlbumMetadataWriter.readTranslationVolume(tmp), 0.85);
+      // 最小 sidecar：文件已存在且是合法 JSON
+      final json = jsonDecode(
+        await File('${tmp.path}/album.json').readAsString(),
+      );
+      expect(json, isA<Map<String, dynamic>>());
+    });
+
+    test('再次 record 覆盖同键、不碰别的键', () async {
+      await AlbumMetadataWriter.recordFileKey(
+        tmp,
+        fileName: 'a.mp3',
+        fileKey: 'k1',
+      );
+      await AlbumMetadataWriter.recordTranslationVolume(tmp, volume: 0.5);
+      await AlbumMetadataWriter.recordTranslationVolume(tmp, volume: 0.3);
+      expect(await AlbumMetadataWriter.readTranslationVolume(tmp), 0.3);
+      expect((await AlbumMetadataWriter.readFileKeys(tmp))['a.mp3'], 'k1');
+    });
+
+    test('write 重写 album.json 不丢 translationVolume', () async {
+      await AlbumMetadataWriter.recordTranslationVolume(tmp, volume: 0.42);
+      await AlbumMetadataWriter.write(tmp, work: mkWork(title: '重写音量'));
+      expect(await AlbumMetadataWriter.readTranslationVolume(tmp), 0.42);
+      // 且 work 本体已写入
+      final json = jsonDecode(
+        await File('${tmp.path}/album.json').readAsString(),
+      ) as Map<String, dynamic>;
+      expect(json['work'], isA<Map<String, dynamic>>());
+    });
+
+    test('越界值钳位；非数值读为 null', () async {
+      await AlbumMetadataWriter.recordTranslationVolume(tmp, volume: 2.5);
+      expect(await AlbumMetadataWriter.readTranslationVolume(tmp), 1.0);
+      await AlbumMetadataWriter.recordTranslationVolume(tmp, volume: -1);
+      expect(await AlbumMetadataWriter.readTranslationVolume(tmp), 0.0);
+
+      // 手工塞坏值
+      final file = File('${tmp.path}/album.json');
+      final json =
+          jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      json[AlbumMetadataWriter.translationVolumeKey] = 'oops';
+      await file.writeAsString(jsonEncode(json));
+      expect(await AlbumMetadataWriter.readTranslationVolume(tmp), isNull);
+    });
+  });
 }

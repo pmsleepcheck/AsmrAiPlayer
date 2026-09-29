@@ -19,10 +19,13 @@ class EarChannelRouter {
 
   /// mpv `af`：单耳输出（内容 downmix 到 side，对侧静音）。
   static String filterFor(EarSide side) {
-    // pan 表达式引用输入 c0/c1；先 aformat 保证 mono/多声道都能进 pan。
+    // pan 表达式用 `FL<增益*cN` 经典语法：`c0=...` 赋值语法在所集成的
+    // ffmpeg（zhongfly 完整版 mpv）上被实测拒绝（"Expected in channel
+    // name"），而 `FL<0.5*c0+0.5*c1` 两端均验证通过（见 ao=pcm 输出
+    // 波形分析）。先 aformat 保证 mono/多声道都能进 pan。
     final expr = side == EarSide.left
-        ? 'stereo|c0=0.5*c0+0.5*c1|c1=0'
-        : 'stereo|c0=0|c1=0.5*c0+0.5*c1';
+        ? 'stereo|FL<0.5*c0+0.5*c1|FR<0*c0'
+        : 'stereo|FL<0*c0|FR<0.5*c0+0.5*c1';
     return 'lavfi=[aformat=channel_layouts=stereo,pan=$expr]';
   }
 

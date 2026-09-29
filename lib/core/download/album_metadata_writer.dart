@@ -26,6 +26,10 @@ class AlbumMetadataWriter {
   /// 路径不再含 md5 层，扫盘/回退靠它把磁盘文件映射回 DB `file_key`。
   static const String fileKeysKey = 'fileKeys';
 
+  /// sidecar-only 键：该作品的「翻译轨手动音量」(0..1)。
+  /// 播放页手动调节后写入，下次播同一作品读回（跨设备拷走文件夹即带走）。
+  static const String translationVolumeKey = 'translationVolume';
+
   /// 纯 payload 构造（供单测直接验证 round-trip，无 IO）。
   static Map<String, dynamic> payload({
     required Work work,
@@ -137,6 +141,31 @@ class AlbumMetadataWriter {
     await _atomicWrite(dest, json);
   }
 
+  /// 读「翻译轨手动音量」（缺失/损坏/非数值 → null）。
+  static Future<double?> readTranslationVolume(Directory workDir) async {
+    final json = await _readJson(_file(workDir));
+    final raw = json?[translationVolumeKey];
+    if (raw is! num) return null;
+    final v = raw.toDouble();
+    if (v.isNaN || v < 0) return null;
+    return v > 1 ? 1 : v;
+  }
+
+  /// 记录音量（读-合并-写；album.json 不存在则建最小 sidecar）。
+  /// best-effort 语义由调用方保证。
+  static Future<void> recordTranslationVolume(
+    Directory workDir, {
+    required double volume,
+  }) async {
+    final dest = _file(workDir);
+    final json = await _readJson(dest) ?? <String, dynamic>{};
+    json[translationVolumeKey] = volume.clamp(0.0, 1.0);
+    if (!await workDir.exists()) {
+      await workDir.create(recursive: true);
+    }
+    await _atomicWrite(dest, json);
+  }
+
   /// best-effort 把 [work]（+[files]）写入 `<workDir>/album.json`，
   /// 并**保留**已有 `subtitleMatches`（读-合并-写，避免下次下载抹掉匹配记录）。
   static Future<void> write(
@@ -159,6 +188,10 @@ class AlbumMetadataWriter {
       final keys = existing?[fileKeysKey];
       if (keys is Map && keys.isNotEmpty) {
         next[fileKeysKey] = keys;
+      }
+      final vol = existing?[translationVolumeKey];
+      if (vol is num) {
+        next[translationVolumeKey] = vol;
       }
       tmp = File('${dest.path}.dl_tmp');
       await tmp.writeAsString(

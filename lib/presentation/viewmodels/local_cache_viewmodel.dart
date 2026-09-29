@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/core/audio/models/playback_context.dart';
 import 'package:aaplay/core/download/download_service.dart';
 import 'package:aaplay/core/download/models/download_entry.dart';
 import 'package:aaplay/core/download/storage/i_work_snapshot_repository.dart';
@@ -63,27 +64,26 @@ class LocalCacheViewModel extends ChangeNotifier {
   /// 最近一次 [scanAndLoad] 的新增条数；尚未扫过 = null。
   int? get lastScanAdded => _lastScanAdded;
 
-  static const _videoExtensions = {'mp4', 'mkv', 'mov', 'avi', 'webm', 'm4v'};
-
   /// 视频判定与详情页一致：扩展名优先于不可靠的 API `media_type`。
   static bool isVideoEntry(DownloadEntry e) {
     if ((e.mediaType).toLowerCase() == 'video') return true;
-    final ext = e.fileName.split('.').last.toLowerCase();
-    return _videoExtensions.contains(ext);
+    return PlaybackContext.isVideoTitle(e.fileName);
   }
 
+  /// 音频判定：**扩展名必须在播放白名单内**。`media_type=='audio'` 不足以
+  /// 证明可播放——asmr.one 会把字幕（.vtt/.lrc/.txt）也下发成 audio，
+  /// 这类文件送进 `setAudioSource` 会让 mpv 挂起并锁死播放链。
   static bool isAudioEntry(DownloadEntry e) {
     if (isVideoEntry(e)) return false;
     final t = e.mediaType.toLowerCase();
-    if (t == 'audio') return true;
-    // 历史行 mediaType 可能为 ''：非视频、有常见音频扩展名才当音频。
-    if (t.isNotEmpty) return false;
-    const audioExt = {
-      'mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'opus', 'wma', 'mp4a',
-    };
-    final ext = e.fileName.split('.').last.toLowerCase();
-    return audioExt.contains(ext);
+    if (t.isNotEmpty && t != 'audio') return false;
+    return PlaybackContext.isPlayableAudioTitle(e.fileName);
   }
+
+  /// 能进播放器的条目（应用内音频 / 外部视频）。字幕、album.json 等一律
+  /// false —— UI 据此隐藏播放按钮并禁用整行点播。
+  static bool isPlayableEntry(DownloadEntry e) =>
+      isVideoEntry(e) || isAudioEntry(e);
 
   /// [scan] 为 true 时先扫盘回填 DB 再列（进页首扫用）；扫盘失败只记
   /// 日志，不阻断 DB 列表加载。

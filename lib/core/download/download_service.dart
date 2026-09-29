@@ -357,6 +357,36 @@ class DownloadService {
     }
   }
 
+  /// 读 album.json 的 `translationVolume`（无作品目录/无记录 → null，
+  /// best-effort：翻译手动音量按作品记住，读不到就用全局默认）。
+  Future<double?> readTranslationVolume(String workId) async {
+    try {
+      final dir = await findWorkDir(workId);
+      if (dir == null) return null;
+      return await AlbumMetadataWriter.readTranslationVolume(dir);
+    } catch (e) {
+      AppLogger.warning('读取 translationVolume 失败: $workId ($e)');
+      return null;
+    }
+  }
+
+  /// 写「翻译轨手动音量」进作品目录 album.json（best-effort，失败只 log）。
+  /// 返回是否写成功；无作品目录时在默认根下补建（同 `recordSubtitleMatch`）。
+  Future<bool> recordTranslationVolume(String workId, double volume) async {
+    try {
+      var dir = await findWorkDir(workId);
+      dir ??= await _workDir(workId);
+      await AlbumMetadataWriter.recordTranslationVolume(
+        dir,
+        volume: volume,
+      );
+      return true;
+    } catch (e) {
+      AppLogger.warning('写入 translationVolume 失败: $workId ($e)');
+      return false;
+    }
+  }
+
   /// 扫描全部根目录（默认 + 附加），把「盘上有、DB 缺/失效」的文件回填进
   /// `downloads` 表，并把作品根下的 `album.json` 导入 `work_snapshots`。
   /// 返回本次**新增/修复**的条目数。仅显式触发（进页/下拉/按钮），不进播放

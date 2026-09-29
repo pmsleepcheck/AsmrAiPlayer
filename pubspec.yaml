@@ -68,7 +68,12 @@ dependencies:
   file_picker: ^8.0.0
   open_filex: ^4.5.0
   path: ^1.9.0
+  # 纯 Dart MP3 编解码：翻译音量自动对齐要用它算主轨/TTS 的 RMS（无 FFI、
+  # 无构建脚本，Android/iOS/Windows 行为一致；见 TODO 20260928-translation-volume）。
+  glint_audio_pure: ^0.6.2
   just_audio_media_kit: ^2.1.0
+  # 上游 audio 变体捆绑精简 ffmpeg（无 pan 等 lavfi 滤镜，分耳翻译失效）。
+  # 实际使用 dependency_overrides 指向 third_party 下的 fork（完整版 libmpv）。
   media_kit_libs_windows_audio: ^1.0.9
 
 dev_dependencies:
@@ -154,3 +159,8 @@ dependency_overrides:
   # 上游升级需手动同步 third_party/just_audio_media_kit。
   just_audio_media_kit:
     path: third_party/just_audio_media_kit
+  # AsmrAiPlayer fork：仅替换 libmpv 下载源为完整版 ffmpeg 构建
+  # （上游精简版无 pan/aformat 滤镜，mpv af 分耳滤镜运行时失效）。
+  # 改动点仅 windows/CMakeLists.txt 的 LIBMPV/URL/MD5 三行。
+  media_kit_libs_windows_audio:
+    path: third_party/media_kit_libs_windows_audio

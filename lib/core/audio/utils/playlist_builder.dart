@@ -3,6 +3,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:aaplay/core/download/download_service.dart';
 import 'package:aaplay/data/models/files/child.dart';
 import 'package:aaplay/core/audio/cache/audio_cache_manager.dart';
+import 'package:aaplay/core/audio/models/playback_context.dart';
 import 'package:aaplay/utils/logger.dart';
 
 class PlaylistBuilder {
@@ -41,6 +42,16 @@ class PlaylistBuilder {
 
     for (var i = 0; i < files.length; i++) {
       try {
+        // 最后一道闸：不可播放扩展名（字幕 .vtt/.lrc/.srt/.txt、视频、
+        // album.json 等）绝不产出 AudioSource。这类文件一旦送进
+        // setAudioSource，mpv 会卡在加载态，下一次 stop() 与在途加载交错
+        // 即把播放链锁死（表现为「点一次坏文件后全部播放失败，重启才好」）。
+        // title==null 无法判定，保持既有降级行为（仍建源）。
+        if (files[i].title != null &&
+            !PlaybackContext.isPlayableAudioTitle(files[i].title)) {
+          AppLogger.warning('跳过不可播放的音频源: ${files[i].title}');
+          continue;
+        }
         AudioSource? source;
         // 本地缓存合成 context 用 `file://` 绝对路径（DownloadEntry.filePath）：
         // 合成 Child 没有原 hash，candidateKeys 对不上 DB fileKey，必须先按

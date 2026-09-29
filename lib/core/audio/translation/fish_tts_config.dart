@@ -59,6 +59,7 @@ class FishTtsConfigStore extends ChangeNotifier {
   static const String prefReferenceId = 'fish_reference_id';
   static const String prefModel = 'fish_model';
   static const String prefSecondaryVolume = 'translation_secondary_volume';
+  static const String prefAutoVolume = 'translation_auto_volume';
   static const String prefDelayMs = 'translation_delay_ms';
   static const String prefVoicePresets = 'fish_voice_presets';
   static const String prefActiveVoiceId = 'fish_active_voice_id';
@@ -66,6 +67,7 @@ class FishTtsConfigStore extends ChangeNotifier {
   /// 免费开发档（fish 文档：`s2.1-pro-free`）。
   static const String defaultModel = 's2.1-pro-free';
   static const double defaultSecondaryVolume = 0.7;
+  static const bool defaultAutoVolume = true;
   static const int defaultDelayMs = 0;
 
   static const List<String> modelOptions = [
@@ -256,8 +258,23 @@ class FishTtsConfigStore extends ChangeNotifier {
     return v > 1 ? 1 : v;
   }
 
-  Future<void> setSecondaryVolume(double v) =>
-      _prefs.setDouble(prefSecondaryVolume, v.clamp(0.0, 1.0));
+  /// 手动音量变化要**立即**作用到进行中的会话 → 变更时 notify。
+  Future<void> setSecondaryVolume(double v) async {
+    final next = v.clamp(0.0, 1.0);
+    if (secondaryVolume == next) return;
+    await _prefs.setDouble(prefSecondaryVolume, next);
+    notifyListeners();
+  }
+
+  /// 自动响度对齐开关（默认开）。关掉 = 纯手动（按 [secondaryVolume] 比例）。
+  bool get translationAutoVolume =>
+      _prefs.getBool(prefAutoVolume) ?? defaultAutoVolume;
+
+  Future<void> setTranslationAutoVolume(bool v) async {
+    if (translationAutoVolume == v) return;
+    await _prefs.setBool(prefAutoVolume, v);
+    notifyListeners();
+  }
 
   /// 同声传译延迟（毫秒）。字幕行出现后先等这么久再播翻译轨。
   int get delayMs {

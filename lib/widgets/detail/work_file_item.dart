@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:aaplay/common/constants/strings.dart';
+import 'package:aaplay/core/audio/models/playback_context.dart';
 import 'package:aaplay/core/download/download_service.dart';
 import 'package:aaplay/data/models/files/child.dart';
 import 'package:aaplay/utils/logger.dart';
@@ -36,34 +37,27 @@ class WorkFileItem extends StatelessWidget {
     this.onFilePickSubtitle,
   });
 
-  static const _videoExtensions = {'mp4', 'mkv', 'mov', 'avi', 'webm', 'm4v'};
-
-  static const _subtitleExtensions = {'vtt', 'lrc', 'srt', 'txt'};
-
-  /// 与 `PlaybackContext.playlistAudioExtensions` 对齐：type 缺失时按扩展名兜底。
-  static const _audioExtensions = {
-    'mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'opus', 'wma', 'mp4a',
-  };
-
-  bool get _isVideo {
-    if ((file.type ?? '').toLowerCase() == 'video') return true;
-    final ext = file.title?.split('.').last.toLowerCase();
-    return ext != null && _videoExtensions.contains(ext);
-  }
+  /// 「能进播放器」的判定统一走 `PlaybackContext`（音频白名单唯一持有者）。
+  /// 扩展名优先于不可靠的 API `type`：错标 `type:audio` 的字幕/视频一旦拿到
+  /// 播放按钮，会被直接送进 `setAudioSource` 并把播放链挂死。
+  bool get _isVideo =>
+      (file.type ?? '').toLowerCase() == 'video' ||
+      PlaybackContext.isVideoTitle(file.title);
 
   bool get _isAudio {
     if (_isVideo) return false;
+    if (PlaybackContext.isSubtitleTitle(file.title)) return false;
+    final ext = PlaybackContext.extensionOf(file.title);
+    if (ext != null && !PlaybackContext.playlistAudioExtensions.contains(ext)) {
+      return false;
+    }
     final t = (file.type ?? '').toLowerCase();
     if (t == 'audio') return true;
     if (t.isNotEmpty) return false;
-    final ext = file.title?.split('.').last.toLowerCase();
-    return ext != null && _audioExtensions.contains(ext);
+    return PlaybackContext.isPlayableAudioTitle(file.title);
   }
 
-  bool get _isSubtitle {
-    final ext = file.title?.split('.').last.toLowerCase();
-    return ext != null && _subtitleExtensions.contains(ext);
-  }
+  bool get _isSubtitle => PlaybackContext.isSubtitleTitle(file.title);
 
   bool get _isDownloaded {
     final keys = downloadedFileKeys;

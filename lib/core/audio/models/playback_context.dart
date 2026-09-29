@@ -83,14 +83,50 @@ class PlaybackContext {
     'mp4a',
   };
 
+  /// 可预览字幕扩展名（与详情页字幕预览入口一致）。
+  /// 这类文件**不可播放**：mpv 打开纯文本会挂起加载，进而锁死播放链。
+  static const Set<String> subtitleExtensions = {'vtt', 'lrc', 'srt', 'txt'};
+
+  /// 已知视频扩展名（详情页 / 本地缓存统一使用）。
+  static const Set<String> videoExtensions = {
+    'mp4',
+    'mkv',
+    'mov',
+    'avi',
+    'webm',
+    'm4v',
+  };
+
+  /// 文件名扩展名：小写、不含点；无扩展名 / 纯点开头返回 null。
+  /// 统一入口——历史上各处用 `split('.').last`，无点文件名会被当成扩展名。
+  static String? extensionOf(String? title) {
+    if (title == null || title.isEmpty) return null;
+    final idx = title.lastIndexOf('.');
+    if (idx <= 0 || idx == title.length - 1) return null;
+    return title.substring(idx + 1).toLowerCase();
+  }
+
+  /// 是否**能进播放器**的音频文件（扩展名在 [playlistAudioExtensions] 内）。
+  /// 这是全 app 判定「可播放」的唯一依据：UI 播放按钮、播放列表、
+  /// 本地缓存点播都必须先过这道闸。
+  static bool isPlayableAudioTitle(String? title) {
+    final ext = extensionOf(title);
+    return ext != null && playlistAudioExtensions.contains(ext);
+  }
+
+  static bool isSubtitleTitle(String? title) =>
+      subtitleExtensions.contains(extensionOf(title));
+
+  static bool isVideoTitle(String? title) =>
+      videoExtensions.contains(extensionOf(title));
+
   // 获取同级文件列表
   static List<Child> _getPlaylistFromSameDirectory(
       Child currentFile, Files files) {
-    // 获取当前文件的扩展名
-    final extension =
-        (currentFile.title ?? '').split('.').last.toLowerCase();
+    // 获取当前文件的扩展名（无扩展名 → null，一律视为不可播放）
+    final extension = extensionOf(currentFile.title);
 
-    if (!playlistAudioExtensions.contains(extension)) {
+    if (extension == null || !playlistAudioExtensions.contains(extension)) {
       AppLogger.debug('不支持的文件类型: $extension');
       return [];
     }

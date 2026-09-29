@@ -42,6 +42,10 @@ class AppSettingsService extends ChangeNotifier {
   static const String _noImageModeKey = 'no_image_mode';
   static const String _subtitleDisplayModeKey = 'subtitle_display_mode';
 
+  /// 本地缓存页视图：true=文件夹树形（默认，按磁盘真实目录层级），
+  /// false=显示全部文件（按作品分组的扁平列表）。
+  static const String _localCacheTreeModeKey = 'local_cache_tree_mode';
+
   /// 附加缓存/扫描目录（绝对路径列表，默认空 = 仅默认下载根）。
   /// 只读扫描源：新下载仍写默认根；Win/Android 同一代码路径。
   static const String _downloadExtraDirsKey = 'download_extra_dirs';
@@ -51,6 +55,7 @@ class AppSettingsService extends ChangeNotifier {
   static const SubtitleDisplayMode defaultSubtitleDisplayMode =
       SubtitleDisplayMode.inApp;
   static const String defaultProxyUrl = '127.0.0.1:7890';
+  static const bool defaultLocalCacheTreeMode = true;
   static const List<String> defaultAudioFormatOrder = [
     'mp3',
     'flac',
@@ -82,6 +87,7 @@ class AppSettingsService extends ChangeNotifier {
   late bool _noImageMode;
   late List<String> _downloadExtraDirs;
   late SubtitleDisplayMode _subtitleDisplayMode;
+  late bool _localCacheTreeMode;
 
   AppSettingsService(this._prefs) {
     _serverUrl = _prefs.getString(_serverUrlKey) ?? defaultServerUrl;
@@ -106,6 +112,8 @@ class AppSettingsService extends ChangeNotifier {
       (m) => m.name == savedSubtitleMode,
       orElse: () => defaultSubtitleDisplayMode,
     );
+    _localCacheTreeMode =
+        _prefs.getBool(_localCacheTreeModeKey) ?? defaultLocalCacheTreeMode;
   }
 
   // === Server URL ===
@@ -237,5 +245,17 @@ class AppSettingsService extends ChangeNotifier {
     _subtitleDisplayMode = mode;
     notifyListeners();
     await _prefs.setString(_subtitleDisplayModeKey, mode.name);
+  }
+
+  // === Local cache view (tree / flat) ===
+  /// `true`（默认）→ 本地缓存按磁盘真实文件夹树展示；
+  /// `false` → 按作品分组的扁平列表（显示全部文件）。
+  bool get localCacheTreeMode => _localCacheTreeMode;
+
+  Future<void> setLocalCacheTreeMode(bool enabled) async {
+    if (_localCacheTreeMode == enabled) return;
+    _localCacheTreeMode = enabled;
+    notifyListeners();
+    await _prefs.setBool(_localCacheTreeModeKey, enabled);
   }
 }

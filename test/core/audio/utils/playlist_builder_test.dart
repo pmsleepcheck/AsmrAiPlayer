@@ -158,4 +158,50 @@ void main() {
       expect(uri.toFilePath(), path);
     });
   });
+
+  group('PlaylistBuilder 跳过不可播放的扩展名（最后一道闸）', () {
+    test('字幕 / 元数据 / 临时文件不产出 AudioSource，音频照常', () async {
+      const local = 'file:///C:/dl';
+      final files = [
+        Child(title: '01.mp3', mediaDownloadUrl: 'https://cdn/01.mp3'),
+        Child(title: '01.vtt', mediaDownloadUrl: '$local/01.vtt'),
+        Child(title: '01.lrc', mediaDownloadUrl: '$local/01.lrc'),
+        Child(title: 'album.json', mediaDownloadUrl: '$local/album.json'),
+        Child(title: 'intro.mp4', mediaDownloadUrl: '$local/intro.mp4'),
+        Child(title: '02.flac', mediaDownloadUrl: '$local/02.flac'),
+      ];
+
+      final (sources, originalIndices) =
+          await PlaylistBuilder.buildAudioSources(
+        files,
+        workId: '1',
+        resolveLocalPaths: (_) async => const {},
+      );
+
+      // 只有白名单内的音频留下；跳过项不进 originalIndices，
+      // remapIndex 才能把初始下标映射到真实队列。
+      expect(originalIndices, [0, 5]);
+      expect(sources.length, 2);
+      expect((sources[0] as UriAudioSource).uri.toString(),
+          'https://cdn/01.mp3');
+      expect((sources[1] as UriAudioSource).uri.toFilePath(),
+          r'C:\dl\02.flac');
+    });
+
+    test('title 缺失时无法判定，保持既有降级行为（仍然建源）', () async {
+      final files = [
+        Child(mediaDownloadUrl: 'https://cdn/no-title.mp3'),
+      ];
+
+      final (sources, originalIndices) =
+          await PlaylistBuilder.buildAudioSources(
+        files,
+        workId: '1',
+        resolveLocalPaths: (_) async => const {},
+      );
+
+      expect(originalIndices, [0]);
+      expect(sources, hasLength(1));
+    });
+  });
 }

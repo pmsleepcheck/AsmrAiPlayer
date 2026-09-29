@@ -55,6 +55,10 @@ class Strings {
   static const String localCacheDeleteFailed = '删除失败';
   static String localCacheGroupCount(int n) => '$n 项';
 
+  /// 视图开关：文件夹树形（默认）/ 显示全部文件（扁平）。
+  static const String localCacheTreeMode = '文件夹树形';
+  static const String localCacheFlatMode = '显示全部文件';
+
   // Detail — offline snapshot fallback
   static const String detailOfflineBanner = '网络不可用，正在显示本地详情';
   static const String detailOfflineRetry = '重试联网';
@@ -507,6 +511,13 @@ class Strings {
   static const String voicePresetDelete = '删除';
   static const String voicePresetNoPresets = '无可用音色预设';
   static const String translationSecondaryVolumeLabel = '翻译轨音量';
+  static const String translationAutoVolumeLabel = '自动音量';
+  static const String translationAutoVolumeDesc =
+      '自动对齐翻译轨与主轨响度（测不到时按手动音量）';
+  static const String translationManualVolumeDesc =
+      '手动调节翻译轨音量，按作品记住';
+  static const String translationVolumeAlignedHint =
+      '自动对齐生效中，手动音量暂不参与';
   static const String translationDelayLabel = '同声传译延迟';
   static const String translationDelayHint =
       '字幕行出现后延迟多久再朗读，便于跟上原音';

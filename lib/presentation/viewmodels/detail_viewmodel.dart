@@ -47,8 +47,6 @@ class DetailViewModel extends ChangeNotifier {
   late final DownloadService _downloadService;
   final Work work;
 
-  static const _videoExtensions = {'mp4', 'mkv', 'mov', 'avi', 'webm', 'm4v'};
-
   Files? _files;
   bool _isLoading = false;
   String? _error;
@@ -291,10 +289,8 @@ class DetailViewModel extends ChangeNotifier {
   /// 扩展名是否属已知视频集。**比 API `type` 更可靠**：asmr.one 实测会把
   /// "介绍视频.mp4"等下发成 `type:"audio"`，若信 `type` 会被当音频送进
   /// 播放管线、播放列表按扩展名过滤后为空 → "播放列表为空/播放失败"。
-  static bool _hasVideoExtension(String? title) {
-    final ext = title?.split('.').last.toLowerCase();
-    return ext != null && _videoExtensions.contains(ext);
-  }
+  static bool _hasVideoExtension(String? title) =>
+      PlaybackContext.isVideoTitle(title);
 
   /// 该文件是否为视频（`type==video` 或视频扩展名）。视频不直接判为
   /// "无法打开"，而是引导下载到本地用外部查看器播放（见 detail_screen）。
@@ -302,27 +298,29 @@ class DetailViewModel extends ChangeNotifier {
       (file.type ?? '').toLowerCase() == 'video' ||
       _hasVideoExtension(file.title);
 
-  /// 静态纯判定：是音频且**不是**视频扩展名。视频扩展名优先于不可靠的
-  /// API `type`，否则错标 `type:audio` 的 .mp4 会被当音频。
-  /// `type` 缺失（历史行/离线快照）时按扩展名兜底，避免 mp3 点了「不支持」。
+  /// 静态纯判定：**能进播放器的音频**。
+  /// 扩展名优先于不可靠的 API `type`：错标 `type:audio` 的 .mp4 / .vtt /
+  /// album.json 都必须先被挡掉，否则会被送进 `setAudioSource`——mpv 打开
+  /// 纯文本会挂起加载，进而把播放链锁死（表现为「点一次坏文件后所有播放
+  /// 都失败，重启才恢复」）。`type` 缺失（历史行/离线快照）时按扩展名兜底，
+  /// 避免 mp3 点了「不支持」；无扩展名但 `type==audio` 仍视为音频。
   static bool _isAudioChild(Child c) {
-    if (_hasVideoExtension(c.title)) return false;
+    if (PlaybackContext.isVideoTitle(c.title)) return false;
+    if (PlaybackContext.isSubtitleTitle(c.title)) return false;
+    final ext = PlaybackContext.extensionOf(c.title);
+    if (ext != null && !PlaybackContext.playlistAudioExtensions.contains(ext)) {
+      return false;
+    }
     final t = (c.type ?? '').toLowerCase();
     if (t == 'audio') return true;
     if (t.isNotEmpty) return false;
-    final ext = c.title?.split('.').last.toLowerCase();
-    return ext != null && PlaybackContext.playlistAudioExtensions.contains(ext);
+    return PlaybackContext.isPlayableAudioTitle(c.title);
   }
 
   bool isAudioFile(Child file) => _isAudioChild(file);
 
-  static const _subtitleExtensions = {'vtt', 'lrc', 'srt', 'txt'};
-
   /// 该文件是否为可预览字幕（.vtt/.lrc/.srt/.txt）。
-  bool isSubtitleFile(Child file) {
-    final ext = file.title?.split('.').last.toLowerCase();
-    return ext != null && _subtitleExtensions.contains(ext);
-  }
+  bool isSubtitleFile(Child file) => PlaybackContext.isSubtitleTitle(file.title);
 
   /// 手工指定字幕：写 album.json（覆盖已有记录）。
   Future<bool> recordSubtitleMatch(Child audio, Child subtitle) async {

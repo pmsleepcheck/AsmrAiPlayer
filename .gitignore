@@ -55,3 +55,4 @@ app.*.map.json
 
 # git worktree 工作目录
 .claude/worktrees/
+/upload-keystore.jks

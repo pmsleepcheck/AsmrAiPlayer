@@ -206,6 +206,14 @@ Future<void> setupServiceLocator() async {
       tts: getIt<FishTtsService>(),
       config: getIt<FishTtsConfigStore>(),
       audio: getIt<IAudioPlayerService>(),
+      // 翻译音量对齐/按作品记住（2026-09-28）：主轨响度要本地路径，
+      // 手动音量落作品 album.json —— 都走 DownloadService。
+      resolveLocalPath: (workId, file) =>
+          getIt<DownloadService>().localPathIfDownloaded(workId, file),
+      readWorkVolume: (workId) =>
+          getIt<DownloadService>().readTranslationVolume(workId),
+      recordWorkVolume: (workId, volume) =>
+          getIt<DownloadService>().recordTranslationVolume(workId, volume),
     ),
   );
 

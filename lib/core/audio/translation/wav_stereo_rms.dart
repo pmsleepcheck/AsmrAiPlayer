@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:aaplay/core/audio/translation/loudness_meter.dart';
+
 class StereoRmsResult {
   final double left;
   final double right;
@@ -33,52 +35,16 @@ class WavStereoRms {
   static const int _maxFrames = 200000;
 
   /// [bytes] = 整个 WAV 文件内容；调用方负责读文件（且仅对 .wav 调用）。
+  /// 头解析共用 `loudness_meter.dart` 的 [WavHeader]，与响度测量口径一致。
   static StereoRmsResult? analyze(Uint8List bytes) {
     if (bytes.length < 44) return null;
-    final data = ByteData.sublistView(bytes);
-
-    // RIFF....WAVE
-    if (!_fourCC(data, 0, 'RIFF') || !_fourCC(data, 8, 'WAVE')) return null;
-
-    int? audioFormat;
-    int? numChannels;
-    int? bitsPerSample;
-    int? dataOffset;
-    int? dataLength;
-
-    var pos = 12;
-    while (pos + 8 <= bytes.length) {
-      final chunkId = _fourCCString(data, pos);
-      final chunkSize = data.getUint32(pos + 4, Endian.little);
-      final body = pos + 8;
-      if (chunkId == 'fmt ' && body + 16 <= bytes.length) {
-        audioFormat = data.getUint16(body, Endian.little);
-        numChannels = data.getUint16(body + 2, Endian.little);
-        bitsPerSample = data.getUint16(body + 14, Endian.little);
-      } else if (chunkId == 'data') {
-        dataOffset = body;
-        dataLength = math.min(chunkSize, bytes.length - body);
-        break;
-      }
-      // chunk 以偶数字节对齐
-      pos = body + chunkSize + (chunkSize.isOdd ? 1 : 0);
-    }
-
-    if (audioFormat == null ||
-        numChannels == null ||
-        bitsPerSample == null ||
-        dataOffset == null ||
-        dataLength == null) {
+    final header = WavHeader.parse(bytes, bytes.length);
+    if (header == null || header.channels < 2 || !header.supported) {
       return null;
     }
-    if (numChannels < 2) return null;
-    if (audioFormat != 1 && audioFormat != 3) return null;
-    if (bitsPerSample != 16 && bitsPerSample != 32) return null;
-    if (dataLength <= 0) return null;
-
-    final bytesPerSample = bitsPerSample ~/ 8;
-    final frameSize = bytesPerSample * numChannels;
-    final totalFrames = dataLength ~/ frameSize;
+    final data = ByteData.sublistView(bytes);
+    final frameSize = header.frameSize;
+    final totalFrames = header.dataLength ~/ frameSize;
     if (totalFrames <= 0) return null;
 
     final stride = math.max(1, totalFrames ~/ _maxFrames);
@@ -87,13 +53,11 @@ class WavStereoRms {
     var count = 0;
 
     for (var f = 0; f < totalFrames; f += stride) {
-      final frameBase = dataOffset + f * frameSize;
-      final l = _readSample(data, frameBase, audioFormat, bitsPerSample);
-      final r = _readSample(
+      final frameBase = header.dataOffset + f * frameSize;
+      final l = header.readSample(data, frameBase);
+      final r = header.readSample(
         data,
-        frameBase + bytesPerSample,
-        audioFormat,
-        bitsPerSample,
+        frameBase + header.bytesPerSample,
       );
       if (l == null || r == null) break;
       sumL += l * l;
@@ -106,36 +70,5 @@ class WavStereoRms {
       left: math.sqrt(sumL / count),
       right: math.sqrt(sumR / count),
     );
-  }
-
-  static double? _readSample(
-    ByteData data,
-    int offset,
-    int audioFormat,
-    int bitsPerSample,
-  ) {
-    if (offset + bitsPerSample ~/ 8 > data.lengthInBytes) return null;
-    if (audioFormat == 3) {
-      return data.getFloat32(offset, Endian.little);
-    }
-    // PCM 16
-    return data.getInt16(offset, Endian.little) / 32768.0;
-  }
-
-  static bool _fourCC(ByteData data, int offset, String tag) {
-    if (offset + 4 > data.lengthInBytes) return false;
-    for (var i = 0; i < 4; i++) {
-      if (data.getUint8(offset + i) != tag.codeUnitAt(i)) return false;
-    }
-    return true;
-  }
-
-  static String _fourCCString(ByteData data, int offset) {
-    if (offset + 4 > data.lengthInBytes) return '';
-    final sb = StringBuffer();
-    for (var i = 0; i < 4; i++) {
-      sb.writeCharCode(data.getUint8(offset + i));
-    }
-    return sb.toString();
   }
 }
