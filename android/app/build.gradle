@@ -11,6 +11,12 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
+// CI/本地都可能没有可用的 release keystore（fork 没配 secrets、新克隆没 key.properties）。
+// 此时 release 构建回退 debug 签名，保证包能出；有 key.properties 且 storeFile 真实存在才用 release 签名。
+def releaseKeystoreReady = keystoreProperties['storeFile'] != null
+        && keystoreProperties['storePassword'] != null
+        && file(keystoreProperties['storeFile']).exists()
+
 android {
     namespace = "com.aaplay"
     compileSdk = flutter.compileSdkVersion
@@ -47,7 +53,7 @@ android {
 
     buildTypes {
         release {
-            signingConfig signingConfigs.release
+            signingConfig releaseKeystoreReady ? signingConfigs.release : signingConfigs.debug
             // 如果还有问题，可以临时禁用混淆
             minifyEnabled true  // 改为 false 可以禁用混淆
             shrinkResources true  // 改为 false 可以禁用资源压缩

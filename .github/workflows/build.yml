@@ -53,15 +53,23 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Create key.properties
+      - name: Prepare signing (有 secrets 用 release 签名，否则回退 debug)
+        env:
+          KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          echo "storePassword=${{ secrets.KEY_STORE_PASSWORD }}" >> android/key.properties
-          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
-          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
-          echo "storeFile=upload-keystore.jks" >> android/key.properties
-
-      - name: Create keystore file
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+          if [ -n "$KEY_STORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEYSTORE_BASE64" ]; then
+            echo "storePassword=$KEY_STORE_PASSWORD" >> android/key.properties
+            echo "keyPassword=$KEY_PASSWORD" >> android/key.properties
+            echo "keyAlias=$KEY_ALIAS" >> android/key.properties
+            echo "storeFile=upload-keystore.jks" >> android/key.properties
+            echo "$KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+            echo "Signing with the release keystore from secrets."
+          else
+            echo "::notice title=Signing::No signing secrets configured - falling back to the debug signing config."
+          fi
 
       - name: Build APK
         run: flutter build apk --release
