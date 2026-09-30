@@ -170,7 +170,7 @@ A list-page error must communicate the **right recovery action**, not just "出�
 
 ## CI/CD
 
-GitHub Actions (`.github/workflows/build.yml`) triggers on `v*` tags. Builds Android APK/AAB (signed) + iOS IPA, creates GitHub release with changelog.
+GitHub Actions (`.github/workflows/build.yml`) triggers on `v*` tags. Builds Android APK/AAB (signed) + iOS IPA + a Windows x64 portable zip (`build-windows` job on `windows-latest`: `flutter config --enable-windows-desktop` → `flutter build windows --release` → `Compress-Archive` → `app-release-windows-x64.zip`; `upload.needs` includes it, so a Windows build failure blocks the whole release — roll back by dropping it from `needs`), creates GitHub release with changelog.
 
 ## Code Generation
 
