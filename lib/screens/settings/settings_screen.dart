@@ -14,6 +14,8 @@ import 'package:aaplay/screens/settings/proxy_address_dialog.dart';
 import 'package:aaplay/screens/settings/download_dirs_dialog.dart';
 import 'package:aaplay/screens/settings/fish_tts_settings_dialog.dart';
 import 'package:aaplay/core/audio/translation/fish_tts_config.dart';
+import 'package:aaplay/core/audio/translation/supertonic_tts_service.dart';
+import 'package:aaplay/core/audio/translation/tts_synthesizer.dart';
 import 'package:aaplay/core/theme/app_colors.dart';
 import 'package:aaplay/core/theme/app_spacing.dart';
 import 'package:aaplay/screens/settings/widgets/settings_group.dart';
@@ -272,16 +274,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
             footer: Strings.aiTranslationSectionDesc,
             children: [
               SettingsTile.navigation(
-                title: Strings.fishApiKey,
-                leading: Icons.key_outlined,
-                value: hasKey
-                    ? Strings.fishApiKeySet
-                    : Strings.fishApiKeyNotSet,
+                title: Strings.aiTranslationEntry,
+                leading: Icons.translate_outlined,
+                value: config.ttsSource == TtsSource.fish
+                    ? (hasKey
+                        ? Strings.fishApiKeySet
+                        : Strings.fishApiKeyNotSet)
+                    : Strings.ttsSourceSupertonic,
                 onTap: () async {
                   await showDialog<bool>(
                     context: context,
-                    builder: (_) =>
-                        FishTtsSettingsDialog(config: config),
+                    builder: (_) => FishTtsSettingsDialog(
+                      config: config,
+                      supertonic: GetIt.I<SupertonicTtsService>(),
+                    ),
                   );
                   if (context.mounted) setState(() {});
                 },

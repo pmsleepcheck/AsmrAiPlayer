@@ -6,8 +6,9 @@ import 'ear_side.dart';
 /// - 主轨 / 翻译轨各有一个 volume；「方向」决定谁是 primary（1.0），
 ///   谁是 secondary（[secondaryVolume]，默认 0.7）。
 /// - 翻译关闭时主轨必须回到 1.0，翻译轨为 0（不发声）。
-/// - 声道路由不在本类：`EarChannelRouter.apply(enabled ? mainEar : null)`
-///   在 `TranslationSessionController._applyEarRouting` 里随本状态推送
+/// - 声道路由不在本类：`EarChannelRouter.apply(mainEar: ...)`（智能耳有
+///   时间线时传 `mainEar: null, ttsEar: ...`，主轨不 pan）在
+///   `TranslationSessionController._applyEarRouting` 里随本状态推送
 ///   （Windows/Linux media_kit mpv `af`；移动端 no-op 降级为本音量 mix）。
 class TranslationMixState {
   final bool enabled;

@@ -9,13 +9,17 @@ import 'package:aaplay/core/network/proxy_config.dart';
 import 'package:aaplay/core/settings/app_settings_service.dart';
 import 'package:aaplay/utils/logger.dart';
 import 'fish_tts_config.dart';
+import 'tts_synthesizer.dart';
 
 /// Fish Audio `POST /v1/tts` 客户端 + 磁盘缓存。
 ///
 /// 请求体/头按官网 docs.fish.audio：
 /// `Authorization: Bearer <key>`、`model` 头、`{text, reference_id?, format}`；
 /// 响应为音频字节流（默认 mp3）。缓存键 = sha256(text|reference_id|model)。
-class FishTtsService {
+///
+/// 实现 [TtsSynthesizer] —— 与 `SupertonicTtsService` 同一抽象，由
+/// `TranslationTtsRouter` 按配置分发。
+class FishTtsService implements TtsSynthesizer {
   static const String endpoint = 'https://api.fish.audio/v1/tts';
   static const String cacheDirName = 'fish_tts_cache';
 
@@ -69,16 +73,38 @@ class FishTtsService {
     return body;
   }
 
-  /// 同步合成：先查缓存，未命中再 POST。返回可直接给 just_audio 的字节。
-  Future<Uint8List> synthesize(String text) async {
+  /// 同一文本的在途请求去重：预取（翻译控制器「下一句」）与当前句的
+  /// `synthesize` 可能同时打同一句（预取还没写盘就轮到了该句），共享一个
+  /// future 避免重复请求 / 重复写盘；完成（含失败）即出表。
+  final Map<String, Future<Uint8List>> _inflight = {};
+
+  /// 合成：先查缓存，未命中再 POST。返回可直接给 just_audio 的字节。
+  @override
+  Future<Uint8List> synthesize(String text) {
     final trimmed = text.trim();
     if (trimmed.isEmpty) {
-      throw FishTtsException(FishTtsError.emptyAudio, 'empty text');
+      return Future.error(
+          FishTtsException(FishTtsError.emptyAudio, 'empty text'));
     }
+    final key = cacheKey(
+      text: trimmed,
+      referenceId: config.referenceId,
+      model: config.model,
+    );
+    final pending = _inflight[key];
+    if (pending != null) return pending;
+    final future = _synthesize(trimmed, key);
+    _inflight[key] = future;
+    future.whenComplete(() {
+      if (identical(_inflight[key], future)) _inflight.remove(key);
+    }).ignore();
+    return future;
+  }
+
+  Future<Uint8List> _synthesize(String trimmed, String key) async {
     final apiKey = await config.requireApiKey();
     final ref = config.referenceId;
     final model = config.model;
-    final key = cacheKey(text: trimmed, referenceId: ref, model: model);
 
     final dir = await _resolveCacheDir();
     final file = File(p.join(dir.path, '$key.mp3'));

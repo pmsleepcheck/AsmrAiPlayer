@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'tts_synthesizer.dart';
+
 /// 命名音色预设。`fromJson` 忽略未知字段（未来可加 `role` 等扩展位）。
 @immutable
 class FishVoicePreset {
@@ -61,14 +63,29 @@ class FishTtsConfigStore extends ChangeNotifier {
   static const String prefSecondaryVolume = 'translation_secondary_volume';
   static const String prefAutoVolume = 'translation_auto_volume';
   static const String prefDelayMs = 'translation_delay_ms';
+  static const String prefSmartEar = 'translation_smart_ear';
   static const String prefVoicePresets = 'fish_voice_presets';
   static const String prefActiveVoiceId = 'fish_active_voice_id';
+
+  // === TTS 引擎（多源） ===
+  static const String prefTtsSource = 'translation_tts_source';
+  static const String prefSupertonicBaseUrl = 'supertonic_base_url';
+  static const String prefSupertonicVoice = 'supertonic_voice';
+  static const String prefSupertonicLang = 'supertonic_lang';
+
+  /// Supertonic 本地服务默认地址（`supertonic serve` 的回环默认值）。
+  static const String defaultSupertonicBaseUrl = 'http://127.0.0.1:7788';
+  static const String defaultSupertonicVoice = 'M1';
+  static const String defaultSupertonicLang = 'na';
 
   /// 免费开发档（fish 文档：`s2.1-pro-free`）。
   static const String defaultModel = 's2.1-pro-free';
   static const double defaultSecondaryVolume = 0.7;
   static const bool defaultAutoVolume = true;
   static const int defaultDelayMs = 0;
+
+  /// 智能耳（**实验**）默认关：逐窗分析还没跑之前行为必须与现状一致。
+  static const bool defaultSmartEar = false;
 
   static const List<String> modelOptions = [
     's2.1-pro-free',
@@ -252,6 +269,57 @@ class FishTtsConfigStore extends ChangeNotifier {
 
   Future<void> setModel(String v) => _prefs.setString(prefModel, v);
 
+  // === TTS 引擎（多源） ===
+
+  /// 当前 TTS 引擎，默认 **Supertonic（本地）**；未知值回落 [TtsSource.supertonic]。
+  TtsSource get ttsSource =>
+      TtsSource.fromId(_prefs.getString(prefTtsSource));
+
+  /// 变更即 notify：播放页/设置页都要立刻换用新引擎并刷新分区。
+  Future<void> setTtsSource(TtsSource v) async {
+    if (ttsSource == v) return;
+    await _prefs.setString(prefTtsSource, v.id);
+    notifyListeners();
+  }
+
+  /// Supertonic 服务地址（去尾部 `/`，空值回落默认地址）。
+  String get supertonicBaseUrl {
+    final raw = (_prefs.getString(prefSupertonicBaseUrl) ?? '').trim();
+    if (raw.isEmpty) return defaultSupertonicBaseUrl;
+    return raw.endsWith('/') ? raw.substring(0, raw.length - 1) : raw;
+  }
+
+  Future<void> setSupertonicBaseUrl(String v) => _prefs.setString(
+        prefSupertonicBaseUrl,
+        v.trim().replaceAll(RegExp(r'/+$'), ''),
+      );
+
+  /// Supertonic 音色名（内置 `M1..M5`/`F1..F5`，也支持导入的自定义音色）。
+  String get supertonicVoice {
+    final v = (_prefs.getString(prefSupertonicVoice) ?? '').trim();
+    return v.isEmpty ? defaultSupertonicVoice : v;
+  }
+
+  Future<void> setSupertonicVoice(String v) async {
+    final next = v.trim();
+    if (next == supertonicVoice) return;
+    await _prefs.setString(prefSupertonicVoice, next);
+    notifyListeners();
+  }
+
+  /// 语言码（supertonic-3 的 31 语种之一；`na` = 自动兜底，任何文本都能跑）。
+  String get supertonicLang {
+    final v = (_prefs.getString(prefSupertonicLang) ?? '').trim();
+    return v.isEmpty ? defaultSupertonicLang : v;
+  }
+
+  Future<void> setSupertonicLang(String v) async {
+    final next = v.trim();
+    if (next == supertonicLang) return;
+    await _prefs.setString(prefSupertonicLang, next);
+    notifyListeners();
+  }
+
   double get secondaryVolume {
     final v = _prefs.getDouble(prefSecondaryVolume);
     if (v == null || v.isNaN || v < 0) return defaultSecondaryVolume;
@@ -276,6 +344,17 @@ class FishTtsConfigStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 智能耳（**实验**，默认关）：开着时翻译轨按本地音频的逐窗左右响度
+  /// 路由（内容响的对侧），主轨不 pan；关着 = 固定分耳（旧行为）。
+  bool get translationSmartEar =>
+      _prefs.getBool(prefSmartEar) ?? defaultSmartEar;
+
+  Future<void> setTranslationSmartEar(bool v) async {
+    if (translationSmartEar == v) return;
+    await _prefs.setBool(prefSmartEar, v);
+    notifyListeners();
+  }
+
   /// 同声传译延迟（毫秒）。字幕行出现后先等这么久再播翻译轨。
   int get delayMs {
     final v = _prefs.getInt(prefDelayMs);
@@ -293,12 +372,16 @@ class FishTtsConfigStore extends ChangeNotifier {
   }
 }
 
+/// 统一的 TTS 异常（Fish / Supertonic 共用；类名沿用 Fish 是历史包袱，不再改名）。
 enum FishTtsError {
   noApiKey,
   unauthorized,
   network,
   badResponse,
   emptyAudio,
+
+  /// 本地 TTS 服务连不上（Supertonic 未启动 / 端口不对 / 非桌面端）。
+  unavailable,
 }
 
 class FishTtsException implements Exception {

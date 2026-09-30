@@ -45,7 +45,9 @@ import 'package:aaplay/core/audio/translation/ear_mark_repository.dart';
 import 'package:aaplay/core/audio/translation/ear_side_detector.dart';
 import 'package:aaplay/core/audio/translation/fish_tts_config.dart';
 import 'package:aaplay/core/audio/translation/fish_tts_service.dart';
+import 'package:aaplay/core/audio/translation/supertonic_tts_service.dart';
 import 'package:aaplay/core/audio/translation/translation_session_controller.dart';
+import 'package:aaplay/core/audio/translation/translation_tts_router.dart';
 import 'package:aaplay/data/models/files/files.dart';
 import 'package:aaplay/data/models/works/work.dart';
 import 'package:aaplay/utils/logger.dart';
@@ -192,6 +194,18 @@ Future<void> setupServiceLocator() async {
       settings: getIt<AppSettingsService>(),
     ),
   );
+  // Supertonic 本地服务：**不接代理**（127.0.0.1 回环，走代理反而连不上）。
+  getIt.registerLazySingleton<SupertonicTtsService>(
+    () => SupertonicTtsService(config: getIt<FishTtsConfigStore>()),
+  );
+  // 按配置分发的 TTS 总入口（默认 Supertonic，设置里可切 Fish）。
+  getIt.registerLazySingleton<TranslationTtsRouter>(
+    () => TranslationTtsRouter(
+      config: getIt<FishTtsConfigStore>(),
+      fish: getIt<FishTtsService>(),
+      supertonic: getIt<SupertonicTtsService>(),
+    ),
+  );
   getIt.registerLazySingleton<EarMarkRepository>(
     () => EarMarkRepository(prefs),
   );
@@ -203,7 +217,7 @@ Future<void> setupServiceLocator() async {
     () => TranslationSessionController(
       subtitleService: getIt<ISubtitleService>(),
       eventHub: getIt<PlaybackEventHub>(),
-      tts: getIt<FishTtsService>(),
+      tts: getIt<TranslationTtsRouter>(),
       config: getIt<FishTtsConfigStore>(),
       audio: getIt<IAudioPlayerService>(),
       // 翻译音量对齐/按作品记住（2026-09-28）：主轨响度要本地路径，

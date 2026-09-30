@@ -459,6 +459,8 @@ class Strings {
   static const String earDetectCancelled = '已取消翻译播放';
   static const String translationRequiresApiKey =
       '请先在设置 → AI 翻译中配置 Fish Audio API Key';
+  static const String translationTtsServiceOffline =
+      '本地 TTS 服务未启动，请在设置 → AI 翻译中启动服务或切换引擎';
   static const String translationNoSubtitle = '当前没有可用字幕，无法朗读翻译';
   static const String translationToggleOn = '开启翻译朗读';
   static const String translationToggleOff = '关闭翻译朗读';
@@ -480,10 +482,43 @@ class Strings {
   static const String translationTtsFailed = '翻译语音生成失败';
   static const String translationUnauthorized = 'Fish API Key 无效或已过期';
 
-  // Settings — AI 翻译（fish TTS 配置）
+  // Settings — AI 翻译（多 TTS 引擎配置）
   static const String aiTranslationSection = 'AI 翻译';
+  static const String aiTranslationEntry = '翻译与 TTS 设置';
   static const String aiTranslationSectionDesc =
-      '双耳翻译朗读：按当前字幕行调用 Fish Audio TTS，与主音轨混播';
+      '双耳翻译朗读：按当前字幕行调用 TTS（Supertonic 本地 / Fish 云端）与主音轨混播';
+  static const String ttsSourceLabel = 'TTS 引擎';
+  static const String ttsSourceDesc =
+      '翻译朗读使用的语音合成引擎，保存后立即生效；Supertonic 完全离线免费';
+  static const String ttsSourceSupertonic = 'Supertonic（本地 · 默认）';
+  static const String ttsSourceFish = 'Fish Audio（云端 API）';
+  static const String supertonicBaseUrlLabel = '本地服务地址';
+  static const String supertonicBaseUrlHint =
+      'supertonic serve 的地址，默认 http://127.0.0.1:7788';
+  static const String supertonicVoiceLabel = '音色';
+  static const String supertonicVoiceHint =
+      '内置 M1–M5 / F1–F5，也可填导入的自定义音色名';
+  static const String supertonicLangLabel = '语言码';
+  static const String supertonicLangHint =
+      'na = 自动识别（任何语言都能跑），也可填 en / zh / ja';
+  static const String supertonicServiceLabel = '本地服务';
+  static const String supertonicCheck = '检测服务';
+  static const String supertonicStart = '启动服务';
+  static const String supertonicChecking = '检测中…';
+  static const String supertonicStarting = '启动中…';
+  static const String supertonicStatusUnknown = '未检测';
+  static const String supertonicStatusRunning = '服务运行中';
+  static const String supertonicStatusStopped = '服务未启动';
+  static const String supertonicLaunchAlreadyRunning = '本地服务已在运行';
+  static const String supertonicLaunchStarted = '本地服务已启动';
+  static const String supertonicLaunchStarting =
+      '进程已启动，首次运行需下载模型（约 400MB），稍后请再次检测';
+  static const String supertonicLaunchUnsupported =
+      '当前平台无法启动本地服务，请在电脑终端运行 supertonic serve';
+  static const String supertonicLaunchNotFound =
+      '未找到 supertonic / python，请先执行 pip install "supertonic[serve]"';
+  static const String supertonicLaunchFailed =
+      '服务未能就绪，请在终端手动运行 supertonic serve 后再检测';
   static const String fishApiKey = 'Fish Audio API Key';
   static const String fishApiKeyHint =
       '在 fish.audio 控制台创建，仅保存在本机安全存储';
@@ -518,6 +553,16 @@ class Strings {
       '手动调节翻译轨音量，按作品记住';
   static const String translationVolumeAlignedHint =
       '自动对齐生效中，手动音量暂不参与';
+  static const String translationSmartEarLabel = '智能(实验)';
+  static const String translationSmartEarDesc =
+      '实验功能：分析本地音频的左右声道，把翻译播到内容更响的对侧；'
+      '左右等响时逐句左右轮播。主轨保持原始立体声。'
+      '仅支持本地 wav/mp3（在线流/其它格式自动回退固定分耳），'
+      'Windows/Linux 生效（移动端无声道路由，仅音量混播）。';
+  static const String smartEarStatusAnalyzing = '分析中…';
+  static const String smartEarStatusReady = '已就绪';
+  static const String smartEarStatusUnsupported = '该格式不支持';
+  static const String smartEarStatusFailed = '分析失败';
   static const String translationDelayLabel = '同声传译延迟';
   static const String translationDelayHint =
       '字幕行出现后延迟多久再朗读，便于跟上原音';

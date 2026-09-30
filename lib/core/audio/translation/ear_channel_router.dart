@@ -42,24 +42,24 @@ class EarChannelRouter {
     if (_supported) JustAudioMediaKit.expectTtsPlayer();
   }
 
-  /// 应用（或清除）分耳路由。[mainEar] 为 null = 清 `af`。
-  static Future<void> apply(EarSide? mainEar) async {
+  /// 应用（或清除）分耳路由。
+  ///
+  /// - `mainEar`：主轨 pan 目标；null = 主轨保持原始立体声（清 `af`）。
+  /// - `ttsEar`：翻译轨 pan 目标；省略时取 `mainEar.flipped`（固定分耳
+  ///   的老行为），两者都为 null = 双轨清 `af`。
+  /// - 智能耳（实验）只推 `ttsEar`（`mainEar: null`）：主轨不动，翻译
+  ///   逐句落在内容的对侧。
+  static Future<void> apply({EarSide? mainEar, EarSide? ttsEar}) async {
     if (!_supported) return;
+    final tts = ttsEar ?? mainEar?.flipped;
     try {
-      if (mainEar == null) {
-        await JustAudioMediaKit.setRoleAudioFilter(
-            JustAudioMediaKit.roleMain, null);
-        await JustAudioMediaKit.setRoleAudioFilter(
-            JustAudioMediaKit.roleTts, null);
-        return;
-      }
       await JustAudioMediaKit.setRoleAudioFilter(
         JustAudioMediaKit.roleMain,
-        filterFor(mainEar),
+        mainEar == null ? null : filterFor(mainEar),
       );
       await JustAudioMediaKit.setRoleAudioFilter(
         JustAudioMediaKit.roleTts,
-        filterFor(mainEar.flipped),
+        tts == null ? null : filterFor(tts),
       );
     } catch (e) {
       AppLogger.warning('声道隔离设置失败: $e');

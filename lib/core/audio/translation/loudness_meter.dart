@@ -12,6 +12,7 @@ import 'package:glint_audio_pure/glint_audio_pure.dart';
 class WavHeader {
   final int audioFormat;
   final int channels;
+  final int sampleRate;
   final int bitsPerSample;
 
   /// `data` chunk 起点（文件内绝对偏移，指向第一个采样字节）。
@@ -24,6 +25,7 @@ class WavHeader {
   const WavHeader({
     required this.audioFormat,
     required this.channels,
+    required this.sampleRate,
     required this.bitsPerSample,
     required this.dataOffset,
     required this.dataLength,
@@ -51,6 +53,7 @@ class WavHeader {
 
     int? audioFormat;
     int? channels;
+    int? sampleRate;
     int? bitsPerSample;
     int? dataOffset;
     int? dataLength;
@@ -63,6 +66,7 @@ class WavHeader {
       if (id == 'fmt ' && body + 16 <= head.length) {
         audioFormat = data.getUint16(body, Endian.little);
         channels = data.getUint16(body + 2, Endian.little);
+        sampleRate = data.getUint32(body + 4, Endian.little);
         bitsPerSample = data.getUint16(body + 14, Endian.little);
         // WAVE_FORMAT_EXTENSIBLE：真实格式在 SubFormat GUID 的头两字节。
         if (audioFormat == 0xFFFE && body + 26 <= head.length) {
@@ -79,6 +83,7 @@ class WavHeader {
 
     if (audioFormat == null ||
         channels == null ||
+        sampleRate == null ||
         bitsPerSample == null ||
         dataOffset == null ||
         dataLength == null) {
@@ -87,6 +92,7 @@ class WavHeader {
     return WavHeader(
       audioFormat: audioFormat,
       channels: channels,
+      sampleRate: sampleRate,
       bitsPerSample: bitsPerSample,
       dataOffset: dataOffset,
       dataLength: dataLength,
@@ -310,7 +316,7 @@ class LoudnessMeter {
         final all = await raf.read(size);
         if (all.isNotEmpty) windows.add(all);
       } else {
-        final headStart = await _id3v2End(raf, size);
+        final headStart = await id3v2End(raf, size);
         if (headStart < size) {
           await raf.setPosition(headStart);
           final w = await raf.read(math.min(_mp3WindowBytes, size - headStart));
@@ -367,7 +373,8 @@ class LoudnessMeter {
   }
 
   /// ID3v2 标签后的第一个字节偏移（无标签返回 0，越界钳到 [size]）。
-  static Future<int> _id3v2End(RandomAccessFile raf, int size) async {
+  /// `smart_ear_analyzer.dart` 扫 mp3 帧头前也用它跳标签。
+  static Future<int> id3v2End(RandomAccessFile raf, int size) async {
     if (size < 10) return 0;
     await raf.setPosition(0);
     final head = await raf.read(10);

@@ -11,6 +11,9 @@ AsmrAiPlayer is designed to provide a smooth and enjoyable ASMR listening experi
 ## Features
 
 - Stable background playback
+- **Simultaneous interpretation (translate + play)**: speaks the current subtitle line over the main track, with adjustable delay / translation-track volume / automatic loudness alignment; toggle it mid-playback and swap the main ear at any time
+- **Smart ear-side detection**: filename `left`/`right` → local WAV acoustic analysis → manual fallback; plus an experimental "smart ear" mode that routes the translation to the louder side window by window
+- **Multiple TTS engines**: Supertonic (local, offline, default) and Fish Audio (cloud API) switchable in Settings; the engine interface leaves room for more sources
 - Beautiful animations and clean UI design
 - Subtitle/lyric display with VTT/LRC import support
 - Playlist management
@@ -25,12 +28,13 @@ AsmrAiPlayer is designed to provide a smooth and enjoyable ASMR listening experi
 
 ## Project Vision (AI-Enhanced Playback · Planned TODO)
 
-The following capabilities are **project vision, not yet implemented**, and will be delivered incrementally via the [TODO docs](docs/todos/):
+Simultaneous interpretation, the translate+play entry, ear-side detection and
+ear-direction switching are **already implemented** (see Features above). The
+capabilities below remain **project vision, not yet implemented**, and will be
+delivered incrementally via the [TODO docs](docs/todos/):
 
-- 🗣️ **Simultaneous interpretation**: live transcription of Japanese audio with overlaid target-language (e.g. Chinese) subtitles during playback
-- 🌍 **Translation**: Japanese → Chinese subtitle translation; a combined “translate + play” entry next to list play buttons
-- 🎤 **Recognition**: ASR subtitle generation; smart left/right ear detection (filename `left`/`right` → acoustic waveform → manual fallback), plus dual-ear alternate mode with “other-ear translation” overlay
-- 🎛️ Toggle translation on/off and switch ear direction at any time while playing
+- 🎤 **Recognition**: turn Japanese audio into subtitles with speech recognition (ASR)
+- 🌍 **Machine translation**: Japanese → Chinese subtitle translation (today the app relies on subtitles already translated by the site)
 
 ## Requirements
 
@@ -79,7 +83,7 @@ This project is licensed under the Creative Commons Attribution-NonCommercial-Sh
 
 - All modifications, new code, and documentation contributed by this repository (AsmrAiPlayer) on top of the upstream project are released under the same [CC BY-NC-SA](LICENSE): share and remix non-commercially, with attribution and **ShareAlike** (derivative works must use the identical license).
 - **Attribution chain**: AsmrAiPlayer → upstream [Xuro](https://github.com/WuMe-sicx/Xuro) ([WuMe-sicx](https://github.com/WuMe-sicx)) → original project [Yuro](https://github.com/asmroneapp/Yuro) ([asmroneapp](https://github.com/asmroneapp)). Keep the full attribution chain and license links when redistributing or deriving.
-- Planned AI-enhanced playback vision items (simultaneous interpretation / translation / recognition) are TODOs; their future implementations will also be covered by this license.
+- The not-yet-implemented parts of the AI-enhanced playback vision (speech recognition ASR, subtitle machine translation) and any future iterations of simultaneous interpretation / translation / recognition are also covered by this license.
 
 Original author: [asmroneapp](https://github.com/asmroneapp) | Original repo: [Yuro](https://github.com/asmroneapp/Yuro)
 
