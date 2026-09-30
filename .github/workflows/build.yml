@@ -137,7 +137,12 @@ jobs:
           path: build/ios/iphoneos/app-release.ipa
 
   build-windows:
-    runs-on: windows-latest
+    # 别改回 windows-latest：2026-06 起它 = Windows Server 2025 + Visual Studio 2026 (18.x)，
+    # 而 Flutter 3.27 的 visual_studio.dart 不认识 VS 2026 → CMake 生成器回落
+    # "Visual Studio 16 2019" → "could not find any instance of Visual Studio"。
+    # windows-2022 自带 Visual Studio 2022 (17.x) + C++ 工作负载，Flutter 能正确映射。
+    # 等升到支持 VS 2026 的 Flutter 后再考虑换回新镜像（flutter/flutter#176399）。
+    runs-on: windows-2022
     permissions:
       contents: read
 
